@@ -7,13 +7,12 @@
 # tsol.t[it] is the corresponding time
 # tsol[ispec,ix,it] refers to solution of component ispec at node ix at moment it
 
-function simulate_DCB(; T::Type=Float64, N::Int=10, op_params, col_params=nothing, sorb_params=nothing, phys_params=nothing, 
-                        enable_logging=true, solver=FBDF(), kwargs...)
-    if col_params === nothing
-        col_params = COL_PARAMS_YOUNG(T)
-        sorb_params = SORB_PARAMS_LEWATIT(T)
-        phys_params = PHYS_PARAMS_LEWATIT(T)
-    end
+function simulate_DCB(; T::Type=Float64, N::Int=10, 
+                        op_params::OperatingParameters,
+                        col_params::ColumnParams,
+                        sorb_params::SorbentParams,
+                        phys_params::PhysicalParams=PHYS_PARAMS_DEFAULT(), 
+                        solver=FBDF(linsolve=KLUFactorization()), kwargs...)
     sys, data, inival = initialize_system(; T, N, op_params, col_params, sorb_params, phys_params)
     problem = ODEProblem(sys, inival, (0, op_params.duration))
     sol = solve(problem, solver; kwargs...)
@@ -116,13 +115,13 @@ function get_cycle_params(; T::Type=Float64,
                             P_out_adsorption=1e5, P_out_desorption, 
                             ΔT_heat=5, max_duration_preheating=15*3600,
                             T_safe_cooling=343, max_duration_cooling=3600*5,
-                            y_H2O_air=0.0115, y_CO2_air=0.0004, y_H2O_desorption)
+                            y_H2O_adsorption=0.0115, y_CO2_adsorption=0.0004, y_H2O_desorption)
     adsorption = OperatingParameters(T;
             step_name = Adsorption,
             u_feed = u_feed_adsorption,
             T_feed = T_feed_adsorption,
-            y_CO2_feed = y_CO2_air,
-            y_H2O_feed = y_H2O_air,
+            y_CO2_feed = y_CO2_adsorption,
+            y_H2O_feed = y_H2O_adsorption,
             T_amb = T_amb_adsorption,
             P_out = P_out_adsorption,
             duration = duration_adsorption)
@@ -164,8 +163,8 @@ function get_cycle_params(; T::Type=Float64,
                     T_amb = T_amb_adsorption,
                     P_out = P_out_adsorption,
                     T_feed = T_feed_adsorption,
-                    y_CO2_feed = y_CO2_air,
-                    y_H2O_feed = y_H2O_air,
+                    y_CO2_feed = y_CO2_adsorption,
+                    y_H2O_feed = y_H2O_adsorption,
                     duration = 60)
 
     cycle_steps = Dictionary{StepType, OperatingParameters}(
@@ -183,8 +182,9 @@ function simulate_process(; T::Type=Float64, N=10,
                             P_out_adsorption=1e5, P_out_desorption, 
                             ΔT_heat=5, max_duration_preheating=15*3600,
                             T_safe_cooling=343, max_duration_cooling=3600*5,
-                            y_H2O_air=0.0115, y_CO2_air=0.0004, y_H2O_desorption,
-                            enable_logging=false, enable_plotting=false, plotter=nothing, steady_state_tol=0.005, max_cycles=6,
+                            y_H2O_adsorption=0.0115, y_CO2_adsorption=0.0004, y_H2O_desorption,
+                            enable_logging=false, enable_plotting=false, plotter=nothing, plot_dir=nothing,
+                            steady_state_tol=0.005, max_cycles=6,
                             col_params::ColumnParams,
                             sorb_params::SorbentParams,
                             phys_params::PhysicalParams=PHYS_PARAMS_DEFAULT(), 
@@ -204,7 +204,7 @@ function simulate_process(; T::Type=Float64, N=10,
                                         P_out_adsorption, P_out_desorption, 
                                         ΔT_heat, max_duration_preheating,
                                         T_safe_cooling, max_duration_cooling,
-                                        y_H2O_air, y_CO2_air, y_H2O_desorption)
+                                        y_H2O_adsorption, y_CO2_adsorption, y_H2O_desorption)
 
     all_solutions, index_data, sys = all_solutions, index_data, sys = run_simulation(
             ; T, N,
@@ -230,14 +230,13 @@ function simulate_process(; T::Type=Float64, N=10,
     end
 
     if enable_plotting
-        # cycle_number = length(all_solutions)
         for cycle_number in 1:length(all_solutions)
-            if !isdir("plots/cycle_$cycle_number")
-                mkdir("plots/cycle_$cycle_number")
+            if !isdir("$plot_dir/cycle_$cycle_number")
+                mkdir("$plot_dir/cycle_$cycle_number")
             end
             plots = plot_grid_idx(all_solutions; plotter, cycle_steps, cycle_number, grid_idx=10)
             for (name, i) in index_data.species
-                plotter.savefig(plots[i], "plots/cycle_$cycle_number/$name.png")
+                plotter.savefig(plots[i], "$plot_dir/cycle_$cycle_number/$name.png")
             end
         end
     end

@@ -17,7 +17,13 @@ export
     is_feasible,
     simulate_DCB,
     post_process,
-    plot_solution
+    plot_solution,
+    PHYS_PARAMS_DEFAULT,
+    COST_PARAMS_DEFAULT,
+    COL_PARAMS_ARVIND,
+    COL_PARAMS_YOUNG,
+    COL_PARAMS_LARGESCALE,
+    SORB_PARAMS_LEWATIT
 
 @enum StepType Adsorption Preheating Heating Desorption Cooling Pressurization
 
