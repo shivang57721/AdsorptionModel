@@ -34,28 +34,56 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
 
     # --- Define callbacks ---
 
+    # Adsorption and Desorption callbacks
+    callback_adsorption = nothing
+    callback_desorption = nothing
+    adsorption_params = cycle_steps[Adsorption]
+    desorption_params = cycle_steps[Desorption]
+    if adsorption_params.q_CO2_saturation_limit != NaN && desorption_params.q_CO2_saturation_limit != NaN
+        # Calculate q_star_CO2 from feed conditions
+        p_H2O = adsorption_params.P_out * adsorption_params.c_H2O_feed / adsorption_params.c_total_feed
+        p_CO2 = adsorption_params.P_out * adsorption_params.c_CO2_feed / adsorption_params.c_total_feed
+        q_star_H2O = sorb_params.q_star_H2O(adsorption_params.T_feed, p_H2O, sorb_params.isotherm_params)
+        q_star_CO2 = sorb_params.q_star_CO2(adsorption_params.T_feed, p_CO2, q_star_H2O, sorb_params.isotherm_params)
+
+        callback_adsorption = DiscreteCallback(
+                                (u,_,_) -> minimum(@view reshape(u, sys)[data.iq_CO2, :]) / q_star_CO2 ≥ adsorption_params.q_CO2_saturation_limit, 
+                                terminate!)
+
+        callback_desorption = DiscreteCallback(
+                                (u,_,_) ->maximum(@view reshape(u, sys)[data.iq_CO2, :]) / q_star_CO2 ≤ desorption_params.q_CO2_saturation_limit,
+                                terminate!)
+    end
+
     # Preheating callback
     callback_preheating = nothing
     preheating_params = cycle_steps[Preheating]
-    if (preheating_params.y_H2O_feed == 0) || (cycle_steps[Desorption].u_feed == 0)
-        preheating_params.duration = 0
-    elseif Preheating ∈ keys(cycle_steps)
-        T_target = find_zero(T -> T_targ(T; P_heat=preheating_params.P_out, y_H2O=preheating_params.y_H2O_feed), 373) + preheating_params.ΔT_heat
-        stop_condition(u, t, integrator) = minimum(@view reshape(u, sys)[data.iT, :]) ≥ T_target
-        callback_preheating = DiscreteCallback(stop_condition, terminate!)
+    if preheating_params.duration != 0
+        T_target = find_zero(T -> T_targ(T; P_heat=preheating_params.P_out, y_H2O=preheating_params.y_H2O_feed), 373) + preheating_params.ΔT_preheating
+        stop_condition(u, _, _) = minimum(@view reshape(u, sys)[data.iT, :]) ≥ T_target
+        callback_preheating = DiscreteCallback((u,_,_) -> minimum(@view reshape(u, sys)[data.iT, :]) ≥ T_target, terminate!)
+    end
+
+    # Heating callback
+    callback_heating = nothing
+    heating_params = cycle_steps[Heating]
+    if heating_params.extra_heating_ratio != NaN
+        T_target = (1 - heating_params.extra_heating_ratio) * heating_params.T_start + heating_params.extra_heating_ratio * heating_params.T_amb * 0.99
+        callback_heating = DiscreteCallback((u,_,_) -> minimum(@view reshape(u, sys)[data.iT, :]) ≥ T_target, terminate!)
     end
 
     # Cooling callback
     callback_cooling = nothing
-    if Cooling ∈ keys(cycle_steps) && cycle_steps[Cooling].T_safe != NaN
-        callback_cooling = DiscreteCallback((u, _, _) -> maximum(@view reshape(u, sys)[data.iT, :]) ≤ cycle_steps[Cooling].T_safe, terminate!)
+    cooling_params = cycle_steps[Cooling]
+    if cooling_params.T_safe_cooling != NaN
+        callback_cooling = DiscreteCallback((u, _, _) -> maximum(@view reshape(u, sys)[data.iT, :]) ≤ cooling_params.T_safe_cooling, terminate!)
     end
 
     callbacks = Dict(
-        Adsorption=>nothing,
+        Adsorption=>callback_adsorption,
         Preheating=>callback_preheating,
-        Heating=>nothing,
-        Desorption=>nothing,
+        Heating=>callback_heating,
+        Desorption=>callback_desorption,
         Cooling=>callback_cooling,
         Pressurization=>nothing
     )
@@ -65,14 +93,18 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
 
     u_current = copy(inival)
     u_previous = similar(u_current)
+    t_current = [step.duration for step in cycle_steps]
+    t_previous = similar(t_current)
 
     for cycle in 1:max_cycles
         if cycle > 2
             # steady-state check
-            rel_diff = maximum(norm.(u_current .- u_previous) ./ norm.(u_previous))
+            u_rel_diff = maximum(norm.(u_current .- u_previous) ./ norm.(u_previous))
+            t_diff = maximum(abs.(t_current .- t_previous))
 
-            @info "Cycle $(cycle-1) relative difference: $rel_diff"
-            if rel_diff < steady_state_tol
+            @info "Cycle $(cycle-1) relative difference: $u_rel_diff"
+            @info "Cycle $(cycle-1) step duration difference: $t_diff"
+            if u_rel_diff < steady_state_tol && t_diff < 60
                 @info "Steady state reached after $(cycle-1) cycles"
                 break
             end
@@ -82,12 +114,13 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
         push!(all_solutions, Dict{StepType,TransientSolution}())
 
         copyto!(u_previous, u_current)
+        t_previous = copy(t_current)
 
         for step_params in cycle_steps
             @info "Running step $(step_params.step_name)"
-
-            # update step parameters in-place
+            # update step parameters
             step_params.P_out_start = step_params.step_name == Pressurization ? u_current[data.ip, 1] : u_current[data.ip, end]
+            step_params.T_start     = minimum(u_current[data.iT, :])
             copy_params!(data.step_params, step_params)
 
             problem = ODEProblem(sys, u_current, (0, step_params.duration))
@@ -102,6 +135,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
             # update state for next step
             copyto!(u_current, step_sol.u[end])
         end
+        t_current = [step.duration for step in cycle_steps]
     end
 
     return all_solutions, data, sys
@@ -113,7 +147,7 @@ function get_cycle_params(; T::Type=Float64,
                             T_amb_desorption, T_feed_desorption, 
                             u_feed_adsorption, u_feed_desorption, 
                             P_out_adsorption=1e5, P_out_desorption, 
-                            ΔT_heat=5, max_duration_preheating=15*3600,
+                            ΔT_preheating=5, max_duration_preheating=15*3600,
                             T_safe_cooling=343, max_duration_cooling=3600*5,
                             y_H2O_adsorption=0.0115, y_CO2_adsorption=0.0004, y_H2O_desorption)
     adsorption = OperatingParameters(T;
@@ -130,9 +164,14 @@ function get_cycle_params(; T::Type=Float64,
             step_name = Preheating,
             T_amb = T_amb_desorption,
             P_out = P_out_desorption,
-            ΔT_heat = ΔT_heat,
+            ΔT_preheating = ΔT_preheating,
             y_H2O_feed = y_H2O_desorption,
             duration = max_duration_preheating)
+     
+    # Cancel preheating if there is no water in the purge feed
+    if y_H2O_desorption < 1e-4 || u_feed_desorption == 0
+        preheating.duration = 0
+    end
 
     heating = OperatingParameters(T;
             step_name = Heating,
@@ -155,7 +194,7 @@ function get_cycle_params(; T::Type=Float64,
             step_name = Cooling,
             T_amb = T_amb_adsorption,
             P_out = P_out_desorption,
-            T_safe = T_safe_cooling,
+            T_safe_cooling = T_safe_cooling,
             duration = max_duration_cooling)
 
     pressurization = OperatingParameters(T;
@@ -180,7 +219,7 @@ function simulate_process(; T::Type=Float64, N=10,
                             T_amb_desorption, T_feed_desorption, 
                             u_feed_adsorption, u_feed_desorption, 
                             P_out_adsorption=1e5, P_out_desorption, 
-                            ΔT_heat=5, max_duration_preheating=15*3600,
+                            ΔT_preheating=5, max_duration_preheating=15*3600,
                             T_safe_cooling=343, max_duration_cooling=3600*5,
                             y_H2O_adsorption=0.0115, y_CO2_adsorption=0.0004, y_H2O_desorption,
                             enable_logging=false, enable_plotting=false, plotter=nothing, plot_dir=nothing,
@@ -202,11 +241,11 @@ function simulate_process(; T::Type=Float64, N=10,
                                         T_amb_desorption, T_feed_desorption, 
                                         u_feed_adsorption, u_feed_desorption, 
                                         P_out_adsorption, P_out_desorption, 
-                                        ΔT_heat, max_duration_preheating,
+                                        ΔT_preheating, max_duration_preheating,
                                         T_safe_cooling, max_duration_cooling,
                                         y_H2O_adsorption, y_CO2_adsorption, y_H2O_desorption)
 
-    all_solutions, index_data, sys = all_solutions, index_data, sys = run_simulation(
+    all_solutions, index_data, sys = run_simulation(
             ; T, N,
             cycle_steps,
             col_params,
@@ -248,7 +287,7 @@ function simulate_process(; T::Type=Float64, N=10,
     return output
 end
 
-function is_feasible(T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_out_desorption; ΔT_heat = 5)
+function is_feasible(T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_out_desorption; ΔT_preheating = 5)
     if y_H2O_desorption == 0
         return T_amb_desorption ≥ T_feed_desorption
     end
@@ -256,5 +295,5 @@ function is_feasible(T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_ou
 
     return (T_feed_desorption ≥ T_saturation) &&
             (T_amb_desorption ≥ T_feed_desorption) &&
-            (T_amb_desorption ≥ T_saturation + ΔT_heat)
+            (T_amb_desorption ≥ T_saturation + ΔT_preheating)
 end

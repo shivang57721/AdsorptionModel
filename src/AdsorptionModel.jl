@@ -144,11 +144,10 @@ function storage(y, u, node, data)
     @inbounds begin
         ε_total = data.sorb_params.ε_total
         C_solid = data.sorb_params.C_solid
-        ρ_bed = data.sorb_params.ρ_bed
+        ρ_bed  = data.sorb_params.ρ_bed
         ΔH_CO2 = data.sorb_params.ΔH_CO2
         ΔH_H2O = data.sorb_params.ΔH_H2O
    
-        # direct indexing local vars
         N2 = u[data.iN2]
         CO2 = u[data.iCO2]
         H2O = u[data.iH2O]
@@ -176,26 +175,35 @@ end
 
 function reaction(y, u, node, data)
     @inbounds begin
-        Rᵢ = data.col_params.Rᵢ
-        Rₒ = data.col_params.Rₒ
-        h_L = data.col_params.h_L
-        h_W = data.col_params.h_W
-        a_wall = π * (Rₒ^2 - Rᵢ^2)
+        col_params  = data.col_params
+        sorb_params = data.sorb_params
+        phys_params = data.phys_params
+        step_params = data.step_params
 
-        params = data.step_params
+        Rᵢ  = col_params.Rᵢ
+        Rₒ  = col_params.Rₒ
+        h_L = col_params.h_L
+        h_W = col_params.h_W
+        Cₚ_wall = phys_params.Cₚ_wall
+        a_wall  = π * (Rₒ^2 - Rᵢ^2)
 
-        # combined concentrations
+        # Pressure term
         c_total_node = u[data.iN2] + u[data.iCO2] + u[data.iH2O]
-        y[data.ip] = u[data.ip] - c_total_node * data.phys_params.R * u[data.iT]
+        y[data.ip] = u[data.ip] - c_total_node * phys_params.R * u[data.iT]
 
-        # wall T terms
+        # Temperature terms
         y[data.iT] = 2h_L/Rᵢ * (u[data.iT] - u[data.iT_wall])
-        y[data.iT_wall] = - 2π/(data.phys_params.Cₚ_wall * a_wall) * (h_L * Rᵢ * (u[data.iT] - u[data.iT_wall]) - h_W * Rₒ * (u[data.iT_wall] - params.T_amb))
+        y[data.iT_wall] = - 2π/(Cₚ_wall * a_wall) * (h_L * Rᵢ * (u[data.iT] - u[data.iT_wall]) - h_W * Rₒ * (u[data.iT_wall] - step_params.T_amb))
 
-        q_star_H2O, q_star_CO2 = data.sorb_params.q_star(u, data)
+        # Parital pressure of H2O and CO2 for calculating q_star
+        p_H2O = u[data.ip] * u[data.iH2O] / (u[data.iCO2] + u[data.iN2] + u[data.iH2O])
+        p_CO2 = u[data.ip] * u[data.iCO2] / (u[data.iCO2] + u[data.iN2] + u[data.iH2O])
 
-        k_CO2 = data.sorb_params.k_CO2
-        k_H2O = data.sorb_params.k_H2O
+        q_star_H2O = sorb_params.q_star_H2O(u[data.iT], p_H2O, sorb_params.isotherm_params)
+        q_star_CO2 = sorb_params.q_star_CO2(u[data.iT], p_CO2, q_star_H2O, sorb_params.isotherm_params)
+
+        k_CO2 = sorb_params.k_CO2
+        k_H2O = sorb_params.k_H2O
 
         y[data.iq_H2O] = - k_H2O * (q_star_H2O - u[data.iq_H2O])
         y[data.iq_CO2] = - k_CO2 * (q_star_CO2 - u[data.iq_CO2])

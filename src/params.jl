@@ -48,16 +48,19 @@ struct SorbentParams{T<:Real}
     k_CO2::T; k_H2O::T; k_N2::T
     ΔH_CO2::T; ΔH_H2O::T; ΔH_N2::T
     Dₘ::T; C_solid::T
-    q_star::Function
+    isotherm_params::IsothermParams
+    q_star_CO2::Function
+    q_star_H2O::Function
 end
 
 SorbentParams(::Type{T}=Float64; ε_bed, ε_total, dₚ, ρ_bed, ρ_particle,
               k_CO2, k_H2O, k_N2, ΔH_CO2, ΔH_H2O, ΔH_N2, Dₘ, C_solid,
-              q_star::Function) where {T<:Real} =
+              q_star_CO2::Function, q_star_H2O::Function, isotherm_params::IsothermParams) where {T<:Real} =
     SorbentParams{T}(T(ε_bed), T(ε_total), T(dₚ), T(ρ_bed), T(ρ_particle),
                      T(k_CO2), T(k_H2O), T(k_N2),
                      T(ΔH_CO2), T(ΔH_H2O), T(ΔH_N2),
-                     T(Dₘ), T(C_solid), q_star)
+                     T(Dₘ), T(C_solid), 
+                     isotherm_params, q_star_CO2, q_star_H2O)
 
 struct CostParams{T<:Real}
     efficiency_blower::T
@@ -73,30 +76,33 @@ CostParams(::Type{T}=Float64; efficiency_blower=0.6, adiabatic_index=1.4, eta_VP
                   T(annual_operating_hours), T(target_CO2_ton_per_year))
 
 mutable struct OperatingParameters{T<:Real}
-    u_feed::T; T_feed::T; T_amb::T
+    u_feed::T; T_feed::T; T_amb::T; T_start::T
     y_CO2_feed::T; y_H2O_feed::T
     duration::T; step_name::StepType
-    ΔT_heat::T; T_safe::T
     P_out::T; P_out_start::T
     y_N2_feed::T; c_total_feed::T
     c_N2_feed::T; c_CO2_feed::T; c_H2O_feed::T
+    ΔT_preheating::T; T_safe_cooling::T
+    q_CO2_saturation_limit::T; extra_heating_ratio::T
 end
 
 OperatingParameters(::Type{T}; u_feed=0, T_feed=293, y_CO2_feed=0, y_H2O_feed=0,
-                    T_amb, P_out, duration, step_name::StepType, ΔT_heat=NaN, T_safe=NaN) where {T<:Real} = begin
+                    T_amb, P_out, duration, step_name::StepType, 
+                    ΔT_preheating=NaN, T_safe_cooling=NaN, q_CO2_saturation_limit=NaN, extra_heating_ratio=NaN) where {T<:Real} = begin
     y_N2_feed = T(1) - T(y_CO2_feed) - T(y_H2O_feed)
     c_total_feed = T(P_out) / (T(8.314) * T(T_feed))
     c_N2_feed = y_N2_feed * c_total_feed
     c_CO2_feed = T(y_CO2_feed) * c_total_feed
     c_H2O_feed = T(y_H2O_feed) * c_total_feed
     OperatingParameters{T}(
-        T(u_feed), T(T_feed), T(T_amb),
+        T(u_feed), T(T_feed), T(T_amb), T(T_amb),
         T(y_CO2_feed), T(y_H2O_feed),
         T(duration), step_name,
-        T(ΔT_heat), T(T_safe),
         T(P_out), T(P_out),
         y_N2_feed, c_total_feed,
-        c_N2_feed, c_CO2_feed, c_H2O_feed
+        c_N2_feed, c_CO2_feed, c_H2O_feed,
+        T(ΔT_preheating), T(T_safe_cooling),
+        T(q_CO2_saturation_limit), T(extra_heating_ratio)
     )
 end
 

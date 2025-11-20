@@ -1,4 +1,5 @@
 using AdsorptionModel
+using Revise
 
 col_params = COL_PARAMS_YOUNG();
 sorb_params = SORB_PARAMS_LEWATIT();

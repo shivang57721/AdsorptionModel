@@ -94,28 +94,27 @@ SORB_PARAMS_LEWATIT(T=Float64) = SorbentParams(T;
                         ΔH_N2 = 0.0,
                         Dₘ = 1.3e-5,
                         C_solid = 1580.0,
-                        # pass instantiated param packs, not factory functions
-                        q_star = let iso = ISOTHERM_PARAMS_LEWATIT(T)
-                            (u, data) -> q_star_Lewatit_WADST(u, data, iso)
-                        end
+                        isotherm_params = ISOTHERM_PARAMS_LEWATIT(T),
+                        q_star_H2O = GAB_isotherm_H2O_Tfunction_Resins,
+                        q_star_CO2 = Toth_WADST_isotherm_CO2_wet
                     )
 
-SORB_PARAMS_HAGHPANAH(T=Float64) = SorbentParams(T;
-                            ε_bed = 0.35,
-                            ε_total = 0.37,
-                            dₚ = 2e-3,
-                            ρ_bed = 528.0,
-                            ρ_particle = 880.0,
-                            k_CO2 = 0.003,
-                            k_H2O = 0.0086,
-                            k_N2 = 0.0,
-                            ΔH_CO2 = -70000.0,
-                            ΔH_H2O = -46000.0,
-                            ΔH_N2 = 0.0,
-                            Dₘ = 1.6e-5,
-                            C_solid = 1580.0,
-                            q_star = q_star_zeolite
-                        )
+# SORB_PARAMS_HAGHPANAH(T=Float64) = SorbentParams(T;
+#                             ε_bed = 0.35,
+#                             ε_total = 0.37,
+#                             dₚ = 2e-3,
+#                             ρ_bed = 528.0,
+#                             ρ_particle = 880.0,
+#                             k_CO2 = 0.003,
+#                             k_H2O = 0.0086,
+#                             k_N2 = 0.0,
+#                             ΔH_CO2 = -70000.0,
+#                             ΔH_H2O = -46000.0,
+#                             ΔH_N2 = 0.0,
+#                             Dₘ = 1.6e-5,
+#                             C_solid = 1580.0,
+#                             q_star = q_star_zeolite
+#                         )
 
 # --------------- PREDEFINED ISOTHERMS ----------------------
 
