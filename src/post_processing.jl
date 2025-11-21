@@ -45,6 +45,11 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
 
     # --- Compute total outflow during desorption ---
     outflow = integrate(sys, T, desorption; rate = false)
+
+    if any(isnan, outflow.u[end])
+        outflow.u[end] = outflow.u[end-1]
+    end
+
     total_outflow = -trapz(outflow.t, reduce(hcat, outflow.u)')
 
     # =====================================================

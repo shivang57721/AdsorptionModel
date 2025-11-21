@@ -17,7 +17,7 @@ export
     is_feasible,
     simulate_DCB,
     post_process,
-    plot_solution,
+    plot_grid_idx,
     PHYS_PARAMS_DEFAULT,
     COST_PARAMS_DEFAULT,
     COL_PARAMS_ARVIND,
@@ -32,6 +32,7 @@ using VoronoiFVM
 using LinearAlgebra
 using Logging
 using Dictionaries
+using JLD2
 include("params.jl")
 include("default_params.jl")
 include("post_processing.jl")
@@ -300,7 +301,7 @@ function AdsorptionData(; T::Type, step_params::OperatingParameters, col_params:
     end
     darcy_k = T(150) * phys_params.μ * (1 - sorb_params.ε_bed)^2 / (sorb_params.ε_bed^3 * sorb_params.dₚ^2)
 
-    # Precompute Ergun constants per step (use feed properties)
+    # Precompute Ergun constants (use feed properties)
     ρ_gas = step_params.P_out / (phys_params.R * step_params.T_amb) *
             (step_params.y_CO2_feed * phys_params.MW_CO2 + step_params.y_H2O_feed * phys_params.MW_H2O + step_params.y_N2_feed * phys_params.MW_N2) * 1e-3
     ε = sorb_params.ε_bed; dₚ = sorb_params.dₚ; μ = phys_params.μ

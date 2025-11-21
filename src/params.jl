@@ -82,13 +82,13 @@ mutable struct OperatingParameters{T<:Real}
     P_out::T; P_out_start::T
     y_N2_feed::T; c_total_feed::T
     c_N2_feed::T; c_CO2_feed::T; c_H2O_feed::T
-    ΔT_preheating::T; T_safe_cooling::T
+    ΔT_heat::T; T_safe_cooling::T
     q_CO2_saturation_limit::T; extra_heating_ratio::T
 end
 
 OperatingParameters(::Type{T}; u_feed=0, T_feed=293, y_CO2_feed=0, y_H2O_feed=0,
                     T_amb, P_out, duration, step_name::StepType, 
-                    ΔT_preheating=NaN, T_safe_cooling=NaN, q_CO2_saturation_limit=NaN, extra_heating_ratio=NaN) where {T<:Real} = begin
+                    ΔT_heat=NaN, T_safe_cooling=NaN, q_CO2_saturation_limit=NaN, extra_heating_ratio=NaN) where {T<:Real} = begin
     y_N2_feed = T(1) - T(y_CO2_feed) - T(y_H2O_feed)
     c_total_feed = T(P_out) / (T(8.314) * T(T_feed))
     c_N2_feed = y_N2_feed * c_total_feed
@@ -101,7 +101,7 @@ OperatingParameters(::Type{T}; u_feed=0, T_feed=293, y_CO2_feed=0, y_H2O_feed=0,
         T(P_out), T(P_out),
         y_N2_feed, c_total_feed,
         c_N2_feed, c_CO2_feed, c_H2O_feed,
-        T(ΔT_preheating), T(T_safe_cooling),
+        T(ΔT_heat), T(T_safe_cooling),
         T(q_CO2_saturation_limit), T(extra_heating_ratio)
     )
 end
