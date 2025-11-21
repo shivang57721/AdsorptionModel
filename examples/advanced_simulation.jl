@@ -2,6 +2,7 @@ using AdsorptionModel
 using JLD2
 using Plots
 using GridVisualize
+using VoronoiFVM
 
 # ------------------------------------------------------------
 # 1. Define model resolution and parameters
@@ -96,7 +97,7 @@ sol_ads = all_solutions[end][Adsorption]
 
 # Option 1: Get grid and co2 profile and plot directly
 xs = coordinates(sys.grid)[1,:]
-co2_profile = sol_ads[data.iCO2, :, end]
+co2_profile = sol_ads[index_data.iCO2, :, end]
 
 plot(xs, co2_profile,
      xlabel="Column position [m]",
