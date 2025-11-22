@@ -114,3 +114,12 @@ scalarplot(
 )
 xlabel!("Column position [m]")
 ylabel!("CO₂ concentration [mol/m³]")
+
+# ---------------------------------------
+# NOTE: How to access a transient solution
+# ---------------------------------------
+# tsol[:,:,it] returns the solution for timestep i
+# tsol[ispec,:,it] returns the solution for component ispec at timestep i
+# tsol(t) returns a (linearly) interpolated solution value for t.
+# tsol.t[it] is the corresponding time
+# tsol[ispec,ix,it] refers to solution of component ispec at node ix at moment it

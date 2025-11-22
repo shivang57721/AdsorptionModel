@@ -60,8 +60,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     preheating_params = cycle_steps[Preheating]
     if preheating_params.duration != 0
         T_target = find_zero(T -> T_targ(T; P_heat=preheating_params.P_out, y_H2O=preheating_params.y_H2O_feed), 373) + preheating_params.ΔT_heat
-        stop_condition(u, _, _) = minimum(@view reshape(u, sys)[data.iT, :]) ≥ T_target
-        callback_preheating = ContinuousCallback((u,_,_) -> minimum(@view reshape(u, sys)[data.iT, :]) - T_target, terminate!)
+        callback_preheating = ContinuousCallback((u,_,_) -> max(0, T_target - minimum(@view reshape(u, sys)[data.iT, :])), terminate!)
     end
 
     # Heating callback
@@ -80,7 +79,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     callback_cooling = nothing
     cooling_params = cycle_steps[Cooling]
     if cooling_params.T_safe_cooling != NaN
-        callback_cooling = DiscreteCallback((u, _, _) -> maximum(@view reshape(u, sys)[data.iT, :]) ≤ cooling_params.T_safe_cooling, terminate!)
+        callback_cooling = ContinuousCallback((u, _, _) -> max(0, maximum(@view reshape(u, sys)[data.iT, :]) - cooling_params.T_safe_cooling), terminate!)
     end
 
     callbacks = Dict(
