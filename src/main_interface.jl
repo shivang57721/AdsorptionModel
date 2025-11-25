@@ -302,7 +302,8 @@ function simulate_process(; T::Type=Float64, N=10,
     return output
 end
 
-function is_feasible(T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_out_desorption; ΔT_heat = 5)
+function is_feasible(q_CO2_saturation_limit_adsorption, q_CO2_saturation_limit_desorption, 
+                    T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_out_desorption; ΔT_heat = 5)
     if y_H2O_desorption == 0
         return T_amb_desorption ≥ T_feed_desorption
     end
@@ -310,5 +311,6 @@ function is_feasible(T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_ou
 
     return (T_feed_desorption ≥ T_saturation) &&
             (T_amb_desorption ≥ T_feed_desorption) &&
-            (T_amb_desorption ≥ T_saturation + ΔT_heat)
+            (T_amb_desorption ≥ T_saturation + ΔT_heat) &&
+            (q_CO2_saturation_limit_adsorption > q_CO2_saturation_limit_desorption)
 end

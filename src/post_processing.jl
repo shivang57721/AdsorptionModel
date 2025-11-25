@@ -155,8 +155,6 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
     total_cons = total_electric_power + 0.5 * total_heat_cons
     spec_cons  = spec_electric_cons + 0.5 * tot_spec_heat  # MJ_el/kg
 
-    membrane_energy = calculate_membrane_energy(total_outflow; data)
-
     # --- Return structured results ---
     (;  specific_energy_consumption_MJ_per_kg = spec_cons,
         co2_dry_purity = dry_purity_CO2,
@@ -207,7 +205,6 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
 
         # combined consumption
         total_energy_consumption_kW = total_cons,
-        membrane_energy_MJ_per_kg = membrane_energy,
 
         # other details
         cross_section_m2 = cross_section,
@@ -218,25 +215,4 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
         n_trains = n_trains,
         column_length_m = col_params.L
         )
-end
-
-function calculate_membrane_energy(total_outflow, Tl=303, P=1e5; data)
-    iCO2, iN2 = data.iCO2, data.iN2
-    n_H2O_gas, n_H2O_liq = gasliq_H2O(total_outflow, Tl, P; data)
-    n_total_gas = total_outflow[iCO2] + total_outflow[iN2] + n_H2O_gas
-    x_CO2 =  total_outflow[iCO2] / n_total_gas
-    membrane_energy = 0.15929655*(x_CO2^(-0.79870615)) # formula from membranes
-    return membrane_energy
-end
-
-function gasliq_H2O(total_outflow, T, P; data)
-    iCO2, iN2, iH2O = data.iCO2, data.iN2, data.iH2O
-    n_total = total_outflow[iCO2] + total_outflow[iN2] + total_outflow[iH2O]
-    y_H2O = total_outflow[iH2O] / n_total
-    y_H2O_eq = Psat_H2O(T - 273.15) / P # maximum gaseous water molar fraction
-    y_H2O_gas = min(y_H2O_eq, y_H2O)
-    n_cond = (total_outflow[iH2O] - y_H2O_gas * n_total) / (1 - y_H2O_gas)
-    n_H2O_gas = total_outflow[iH2O] - n_cond
-    n_H2O_liq = n_cond
-    return n_H2O_gas, n_H2O_liq
 end
