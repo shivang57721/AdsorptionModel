@@ -105,7 +105,7 @@ ISOTHERM_PARAMS_NbOFFIVE(T=Float64) = IsothermParams(T;
                         )
 
 # --------------- SORBENT PARAMS ----------------------
-SORB_PARAMS_LEWATIT(T=Float64) = SorbentParams(T;
+SORB_PARAMS_LEWATIT(T=Float64; activation=1) = SorbentParams(T;
                         ε_bed = 0.4,
                         ε_total = 0.54,
                         dₚ = 0.00052,
@@ -121,10 +121,10 @@ SORB_PARAMS_LEWATIT(T=Float64) = SorbentParams(T;
                         C_solid = 1580.0,
                         isotherm_params = ISOTHERM_PARAMS_LEWATIT(T),
                         q_star_H2O = GAB_isotherm_H2O_Tfunction_Resins,
-                        q_star_CO2 = Toth_WADST_isotherm_CO2_wet
+                        q_star_CO2 = (T, p_CO2, q_H2O, params) -> activation * Toth_WADST_isotherm_CO2_wet(T, p_CO2, q_H2O, params)
                     )
 
-SORB_PARAMS_NbOFFIVE(T=Float64) = SorbentParams(T;
+SORB_PARAMS_NbOFFIVE(T=Float64; activation=1) = SorbentParams(T;
                         ε_bed = 0.4,
                         ε_total = 0.64,
                         dₚ = 0.0075,
@@ -140,7 +140,7 @@ SORB_PARAMS_NbOFFIVE(T=Float64) = SorbentParams(T;
                         C_solid = 1000.0,
                         isotherm_params = ISOTHERM_PARAMS_NbOFFIVE(T),
                         q_star_H2O = GAB_isotherm_H2O,
-                        q_star_CO2 = Toth_isotherm_CO2_modified_H2O_Arvind
+                        q_star_CO2 = (T, p_CO2, q_H2O, params) -> activation * Toth_isotherm_CO2_modified_H2O_Arvind(T, p_CO2, q_H2O, params)
                     )
 
 # --------------- PREDEFINED ISOTHERMS ----------------------

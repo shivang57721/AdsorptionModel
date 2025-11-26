@@ -3,8 +3,8 @@ using AdsorptionModel
 # ------------------------------------------------------------
 # 1. Choose column and sorbent parameters
 # ------------------------------------------------------------
-col_params  = COL_PARAMS_ARVIND()
-sorb_params = SORB_PARAMS_NbOFFIVE()
+col_params  = COL_PARAMS_YOUNG()
+sorb_params = SORB_PARAMS_LEWATIT(activation=0.5)
 
 # ------------------------------------------------------------
 # 2. Run a simple TVSA simulation by specifying the step durations
@@ -38,5 +38,5 @@ output = simulate_process(
     y_H2O_desorption = 0.0,         # dry sweep gas / vacuum
 
     # --- Logging ---
-    enable_logging = true,
+    enable_logging = true
 )

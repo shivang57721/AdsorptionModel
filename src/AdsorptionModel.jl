@@ -276,14 +276,14 @@ function source(f, node, data)
     return
 end
 
-struct AdsorptionData{T, DL, KL, VEL}
+struct AdsorptionData{T, DL, KL, VEL, SP}
     ip::Int; iN2::Int; iCO2::Int; iH2O::Int; iT::Int; iT_wall::Int; iq_CO2::Int; iq_H2O::Int
     Γ_in::Int; Γ_out::Int
     species::Dict{String,Int}
-    step_params::OperatingParameters
-    col_params::ColumnParams
-    sorb_params::SorbentParams
-    phys_params::PhysicalParams
+    step_params::OperatingParameters{T}
+    col_params::ColumnParams{T}
+    sorb_params::SP
+    phys_params::PhysicalParams{T}
     darcy_k::T
     D_L::DL
     K_L::KL
@@ -310,7 +310,7 @@ function AdsorptionData(; T::Type, step_params::OperatingParameters, col_params:
     b = T(150) * μ * (1 - ε) / (dₚ * T(1.75) * ρ_gas)
     c = ε^3 * dₚ / (T(1.75) * ρ_gas * (1 - ε))
 
-    return AdsorptionData{T, typeof(D_L), typeof(K_L), typeof(velocity)}(1,2,3,4,5,6,7,8,
+    return AdsorptionData{T, typeof(D_L), typeof(K_L), typeof(velocity), typeof(sorb_params)}(1,2,3,4,5,6,7,8,
         1,2,
         Dict("P"=>1,"N2"=>2,"CO2"=>3,"H2O"=>4,"T"=>5,"T_wall"=>6,"q_CO2"=>7,"q_H2O"=>8),
         step_params, col_params, sorb_params, phys_params,
