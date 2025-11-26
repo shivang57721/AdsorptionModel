@@ -1,0 +1,11 @@
+[deps]
+AdsorptionModel = "85c8c4dd-0bec-482c-94c5-b971d67d9a6a"
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+GridVisualize = "5eed8a63-0fb0-45eb-886d-8d5a387d12b8"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+VoronoiFVM = "82b139dc-5afc-11e9-35da-9b9bdfd336f3"
+
+[sources]
+AdsorptionModel = {path = ".."}

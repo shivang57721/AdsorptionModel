@@ -3,8 +3,8 @@ using AdsorptionModel
 # ------------------------------------------------------------
 # 1. Choose column and sorbent parameters
 # ------------------------------------------------------------
-col_params  = COL_PARAMS_YOUNG()
-sorb_params = SORB_PARAMS_LEWATIT()
+col_params  = COL_PARAMS_ARVIND()
+sorb_params = SORB_PARAMS_NbOFFIVE()
 
 # ------------------------------------------------------------
 # 2. Run a simple TVSA simulation by specifying the step durations

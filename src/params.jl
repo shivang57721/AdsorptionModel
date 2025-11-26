@@ -23,17 +23,17 @@ PhysicalParams(::Type{T}=Float64; R=8.314, γ₁=0.7, γ₂=0.5, μ=1.789e-5,
 struct IsothermParams{T<:Real}
     q∞::T; b₀::T; T_ref::T; ΔH₀::T; τ₀::T; α::T; # dry params
     b₀_wet::T; ΔH₀_wet::T; τ₀_wet::T; α_wet::T; q∞_wet::T; A::T; # wet params
-    qₘ::T; C::T; D::T; F::T; G::T;
+    qₘ::T; C::T; D::T; F::T; G::T; Cg::T; K_ads::T; Cm::T;
     γ::T; β::T
 end
 
 IsothermParams(::Type{T}=Float64; q∞=NaN, b₀=NaN, T_ref=NaN, ΔH₀=NaN, τ₀=NaN, α=NaN,
                 b₀_wet=NaN, ΔH₀_wet=NaN, τ₀_wet=NaN, α_wet=NaN, q∞_wet=NaN, A=NaN,
-                qₘ=NaN, C=NaN, D=NaN, F=NaN, G=NaN,
+                qₘ=NaN, C=NaN, D=NaN, F=NaN, G=NaN, Cg=NaN, K_ads=NaN, Cm=NaN,
                 γ=NaN, β=NaN) where {T<:Real} =
     IsothermParams{T}(T(q∞), T(b₀), T(T_ref), T(ΔH₀), T(τ₀), T(α),
                         T(b₀_wet), T(ΔH₀_wet), T(τ₀_wet), T(α_wet), T(q∞_wet), T(A),
-                      T(qₘ), T(C), T(D), T(F), T(G),
+                      T(qₘ), T(C), T(D), T(F), T(G), T(Cg), T(K_ads), T(Cm),
                       T(γ), T(β))
 
 struct ColumnParams{T<:Real}

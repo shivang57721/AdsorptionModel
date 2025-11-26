@@ -78,6 +78,31 @@ ISOTHERM_PARAMS_LEWATIT(T=Float64) = IsothermParams(T;
                             γ = - 0.137,
                             β = 5.612
                         )
+ISOTHERM_PARAMS_NbOFFIVE(T=Float64) = IsothermParams(T;
+                            # DRY SITE PARAMS
+                            q∞     = 2.22,
+                            b₀     = 0.17567, # Pa-1
+                            ΔH₀    = -50000,
+                            τ₀     = 1.166,
+                            α      = -0.4937,
+                            T_ref  = 273,
+
+                            # GAB PARAMS
+                            Cg    = 36.81,
+                            K_ads = 0.4063,
+                            Cm    = 6.159,
+
+                            # GAB PARAMS 2
+                            qₘ    = 3.63,
+                            C     = 47110,
+                            D     = 0.023744,
+                            F     = 57706,
+                            G     = -47.814,
+
+                            # Stampi model
+                            γ = 0.0,
+                            β = -0.11707
+                        )
 
 # --------------- SORBENT PARAMS ----------------------
 SORB_PARAMS_LEWATIT(T=Float64) = SorbentParams(T;
@@ -99,40 +124,26 @@ SORB_PARAMS_LEWATIT(T=Float64) = SorbentParams(T;
                         q_star_CO2 = Toth_WADST_isotherm_CO2_wet
                     )
 
-# SORB_PARAMS_HAGHPANAH(T=Float64) = SorbentParams(T;
-#                             ε_bed = 0.35,
-#                             ε_total = 0.37,
-#                             dₚ = 2e-3,
-#                             ρ_bed = 528.0,
-#                             ρ_particle = 880.0,
-#                             k_CO2 = 0.003,
-#                             k_H2O = 0.0086,
-#                             k_N2 = 0.0,
-#                             ΔH_CO2 = -70000.0,
-#                             ΔH_H2O = -46000.0,
-#                             ΔH_N2 = 0.0,
-#                             Dₘ = 1.6e-5,
-#                             C_solid = 1580.0,
-#                             q_star = q_star_zeolite
-#                         )
+SORB_PARAMS_NbOFFIVE(T=Float64) = SorbentParams(T;
+                        ε_bed = 0.4,
+                        ε_total = 0.64,
+                        dₚ = 0.0075,
+                        ρ_bed = 704.0,
+                        ρ_particle = 1173.6,
+                        k_CO2 = 2.0e-4,
+                        k_H2O = 2.0e-1,
+                        k_N2 = 0.0,
+                        ΔH_CO2 = -50000.0,
+                        ΔH_H2O = -45036.0,
+                        ΔH_N2 = 0.0,
+                        Dₘ = 2.05e-5,
+                        C_solid = 1000.0,
+                        isotherm_params = ISOTHERM_PARAMS_NbOFFIVE(T),
+                        q_star_H2O = GAB_isotherm_H2O,
+                        q_star_CO2 = Toth_isotherm_CO2_modified_H2O_Arvind
+                    )
 
 # --------------- PREDEFINED ISOTHERMS ----------------------
-
-function q_star_Lewatit_Stampi(u, data, params)
-    p_H2O = u[data.ip] * u[data.iH2O] / (u[data.iCO2] + u[data.iN2] + u[data.iH2O])
-    p_CO2 = u[data.ip] * u[data.iCO2] / (u[data.iCO2] + u[data.iN2] + u[data.iH2O])
-    q_star_H2O = GAB_isotherm_H2O_Tfunction_Resins(u[data.iT], p_H2O, params)
-    q_star_CO2 = Toth_isotherm_CO2_modified_H2O_Stampi(u[data.iT], p_CO2, q_star_H2O, params)
-    return (; q_star_H2O, q_star_CO2)
-end
-
-function q_star_Lewatit_WADST(u, data, params)
-    p_H2O = u[data.ip] * u[data.iH2O] / (u[data.iCO2] + u[data.iN2] + u[data.iH2O])
-    p_CO2 = u[data.ip] * u[data.iCO2] / (u[data.iCO2] + u[data.iN2] + u[data.iH2O])
-    q_star_H2O = GAB_isotherm_H2O_Tfunction_Resins(u[data.iT], p_H2O, params)
-    q_star_CO2 = Toth_WADST_isotherm_CO2_wet(u[data.iT], p_CO2, q_star_H2O, params)
-    return (; q_star_H2O, q_star_CO2)
-end
 
 Psat_H2O(T) = 611.21 * exp((18.678 - T / 234.5) * T / (T + 273.15 - 16.01))
 
@@ -199,12 +210,37 @@ function Toth_isotherm_CO2_modified_H2O_Stampi(T, p_CO2, q_H2O, params)
     return q_star
 end
 
+function Toth_isotherm_CO2_modified_H2O_Arvind(T, p_CO2, q_H2O, params)
+    q∞     = params.q∞
+    b₀     = params.b₀ # Pa^-1
+    ΔH₀    = params.ΔH₀
+    τ₀     = params.τ₀
+    α      = params.α
+    T_ref  = params.T_ref
+    γ = params.γ
+    β = params.β
+
+    R = 8.314
+
+    p_CO2_safe = _softplus(p_CO2)
+
+    q∞ = q∞ * (1 / (1 - γ * q_H2O))
+    b = b₀ * exp(-ΔH₀ / (R * T_ref) * (T_ref / T - 1)) * _softplus(1 + β * q_H2O)
+    τ = τ₀ + α * (1 - T_ref / T)
+
+    q_star = q∞ * b * p_CO2 / (1 + (b * p_CO2_safe) ^ τ) ^ (1/τ)
+
+    return q_star
+end
+
 function GAB_isotherm_H2O(T, p_H2O, params)
     Cm = params.Cm
     Cg = params.Cg
     K_ads = params.K_ads
 
-    x = p_H2O / Psat_H2O(T-273)
+    p_H2O_safe = _softplus(p_H2O)
+    x = p_H2O_safe / Psat_H2O(T-273)
+    x = clamp(x, 0, 1)
 
     q_H2O = Cm * Cg * K_ads * x /((1 - K_ads * x) * (1 + (Cg - 1) * K_ads * x))
 
@@ -225,7 +261,8 @@ function GAB_isotherm_H2O_Tfunction_Resins(T, p_H2O, params)
     c = exp((E1-E10)/ R / T)
     k = exp((E2_9 - E10)/ R / T)
 
-    x = p_H2O / Psat_H2O(T - 273)
+    p_H2O_safe = _softplus(p_H2O)
+    x = p_H2O_safe / Psat_H2O(T - 273)
     x = clamp(x, 0, 1)
 
     q_star = qm * k * c * x / ((1 - k * x) * (1 + (c - 1) * k * x))

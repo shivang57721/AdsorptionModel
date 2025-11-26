@@ -23,7 +23,8 @@ export
     COL_PARAMS_ARVIND,
     COL_PARAMS_YOUNG,
     COL_PARAMS_LARGESCALE,
-    SORB_PARAMS_LEWATIT
+    SORB_PARAMS_LEWATIT,
+    SORB_PARAMS_NbOFFIVE
 
 @enum StepType Adsorption Preheating Heating Desorption Cooling Pressurization
 
@@ -33,6 +34,7 @@ using LinearAlgebra
 using Logging
 using Dictionaries
 using JLD2
+using ExtendableGrids
 include("params.jl")
 include("default_params.jl")
 include("post_processing.jl")
@@ -318,8 +320,6 @@ end
 # -----------------------------------------------------------------------------
 # Initialization
 # -----------------------------------------------------------------------------
-
-using ExtendableGrids
 function initialize_system(; T::Type=Float64, N::Int,
         op_params::OperatingParameters, col_params::ColumnParams, sorb_params::SorbentParams, phys_params::PhysicalParams,
         velocity=ergun_velocity, flux=flux_exponential, reaction=reaction, bcondition=bcondition, boutflow=boutflow, source=source)

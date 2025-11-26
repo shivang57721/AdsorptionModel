@@ -46,7 +46,7 @@ output = simulate_process(
     T_amb_desorption  = 373,
     T_feed_desorption = 373,
     u_feed_adsorption = 7.06e-2,
-    u_feed_desorption = 7.06e-2 / 2,
+    u_feed_desorption = 7.06e-2 / 3,
     P_out_desorption  = 0.2e5,
     y_H2O_desorption  = 1.0,
 

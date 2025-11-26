@@ -39,7 +39,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     callback_desorption = nothing
     adsorption_params = cycle_steps[Adsorption]
     desorption_params = cycle_steps[Desorption]
-    if adsorption_params.q_CO2_saturation_limit !== NaN && desorption_params.q_CO2_saturation_limit !== NaN
+    if !isnan(adsorption_params.q_CO2_saturation_limit) && !isnan(desorption_params.q_CO2_saturation_limit)
         # Calculate q_star_CO2 from feed conditions
         p_H2O = adsorption_params.P_out * adsorption_params.c_H2O_feed / adsorption_params.c_total_feed
         p_CO2 = adsorption_params.P_out * adsorption_params.c_CO2_feed / adsorption_params.c_total_feed
@@ -60,6 +60,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     preheating_params = cycle_steps[Preheating]
     if preheating_params.duration != 0
         T_target = find_zero(T -> T_targ(T; P_heat=preheating_params.P_out, y_H2O=preheating_params.y_H2O_feed), 373) + preheating_params.ΔT_heat
+        # Consider removing the max(0, ) here to make it differentiable and determine beforehand whether preheating is necessary or not
         callback_preheating = ContinuousCallback((u,_,_) -> max(0, T_target - minimum(@view reshape(u, sys)[data.iT, :])), terminate!)
     end
 
