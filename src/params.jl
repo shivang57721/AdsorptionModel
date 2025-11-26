@@ -43,7 +43,7 @@ end
 ColumnParams(::Type{T}=Float64; Rᵢ, Rₒ, L, h_L, h_W) where {T<:Real} =
     ColumnParams{T}(T(Rᵢ), T(Rₒ), T(L), T(h_L), T(h_W))
 
-struct SorbentParams{T<:Real}
+mutable struct SorbentParams{T<:Real}
     ε_bed::T; ε_total::T; dₚ::T; ρ_bed::T; ρ_particle::T
     k_CO2::T; k_H2O::T; k_N2::T
     ΔH_CO2::T; ΔH_H2O::T; ΔH_N2::T
