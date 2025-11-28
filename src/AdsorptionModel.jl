@@ -276,14 +276,14 @@ function source(f, node, data)
     return
 end
 
-struct AdsorptionData{T, DL, KL, VEL, SP}
+struct AdsorptionData{T, DL, KL, VEL, OP, CP, SP, PP}
     ip::Int; iN2::Int; iCO2::Int; iH2O::Int; iT::Int; iT_wall::Int; iq_CO2::Int; iq_H2O::Int
     Γ_in::Int; Γ_out::Int
     species::Dict{String,Int}
-    step_params::OperatingParameters{T}
-    col_params::ColumnParams{T}
+    step_params::OP
+    col_params::CP
     sorb_params::SP
-    phys_params::PhysicalParams{T}
+    phys_params::PP
     darcy_k::T
     D_L::DL
     K_L::KL
@@ -292,7 +292,7 @@ struct AdsorptionData{T, DL, KL, VEL, SP}
     ergun_c::T
 end
 
-function AdsorptionData(; T::Type, step_params::OperatingParameters, col_params::ColumnParams,
+function AdsorptionData(; step_params::OperatingParameters, col_params::ColumnParams,
                         sorb_params::SorbentParams, phys_params::PhysicalParams, velocity)
     # fully concrete closures (no captured mutable structs)
     D_L = let γ₁=phys_params.γ₁, γ₂=phys_params.γ₂, Dₘ=sorb_params.Dₘ, dₚ=sorb_params.dₚ, ε=sorb_params.ε_bed
@@ -301,16 +301,18 @@ function AdsorptionData(; T::Type, step_params::OperatingParameters, col_params:
     K_L = let D_L=D_L
         (u, C_gas) -> D_L(u) * C_gas
     end
-    darcy_k = T(150) * phys_params.μ * (1 - sorb_params.ε_bed)^2 / (sorb_params.ε_bed^3 * sorb_params.dₚ^2)
+    darcy_k = 150 * phys_params.μ * (1 - sorb_params.ε_bed)^2 / (sorb_params.ε_bed^3 * sorb_params.dₚ^2)
 
     # Precompute Ergun constants (use feed properties)
     ρ_gas = step_params.P_out / (phys_params.R * step_params.T_amb) *
             (step_params.y_CO2_feed * phys_params.MW_CO2 + step_params.y_H2O_feed * phys_params.MW_H2O + step_params.y_N2_feed * phys_params.MW_N2) * 1e-3
     ε = sorb_params.ε_bed; dₚ = sorb_params.dₚ; μ = phys_params.μ
-    b = T(150) * μ * (1 - ε) / (dₚ * T(1.75) * ρ_gas)
-    c = ε^3 * dₚ / (T(1.75) * ρ_gas * (1 - ε))
+    b = 150 * μ * (1 - ε) / (dₚ * 1.75 * ρ_gas)
+    c = ε^3 * dₚ / (1.75 * ρ_gas * (1 - ε))
 
-    return AdsorptionData{T, typeof(D_L), typeof(K_L), typeof(velocity), typeof(sorb_params)}(1,2,3,4,5,6,7,8,
+    return AdsorptionData{typeof(b), typeof(D_L), typeof(K_L), typeof(velocity), 
+                          typeof(step_params), typeof(col_params), typeof(sorb_params), typeof(phys_params)}(
+        1,2,3,4,5,6,7,8,
         1,2,
         Dict("P"=>1,"N2"=>2,"CO2"=>3,"H2O"=>4,"T"=>5,"T_wall"=>6,"q_CO2"=>7,"q_H2O"=>8),
         step_params, col_params, sorb_params, phys_params,
@@ -324,7 +326,7 @@ function initialize_system(; T::Type=Float64, N::Int,
         op_params::OperatingParameters, col_params::ColumnParams, sorb_params::SorbentParams, phys_params::PhysicalParams,
         velocity=ergun_velocity, flux=flux_exponential, reaction=reaction, bcondition=bcondition, boutflow=boutflow, source=source)
 
-    data = AdsorptionData(; T, step_params=deepcopy(op_params), col_params, sorb_params, phys_params, velocity)
+    data = AdsorptionData(; step_params=deepcopy(op_params), col_params, sorb_params, phys_params, velocity)
     X = range(0, stop=col_params.L, length=N)
     grid = VoronoiFVM.Grid(X)
 
