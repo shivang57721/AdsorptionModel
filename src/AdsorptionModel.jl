@@ -60,52 +60,6 @@ ergun_velocity(u, edge, data) = begin
 end
 
 function flux_exponential(f, u, edge, data)
-    @inbounds begin
-        ε_bed = data.sorb_params.ε_bed
-        Δz = edgelength(edge)
-        vh = data.velocity(u, edge, data)
-
-        # totals
-        c1_N2  = u[data.iN2, 1]
-        c1_CO2 = u[data.iCO2, 1]
-        c1_H2O = u[data.iH2O, 1]
-        c2_N2  = u[data.iN2, 2]
-        c2_CO2 = u[data.iCO2, 2]
-        c2_H2O = u[data.iH2O, 2]
-
-        c_total_1 = c1_N2 + c1_CO2 + c1_H2O
-        c_total_2 = c2_N2 + c2_CO2 + c2_H2O
-        c_total_edge = (c_total_1 + c_total_2) * 0.5
-
-        # mole fractions
-        yN2_1 = c1_N2 / c_total_1
-        yCO2_1 = c1_CO2 / c_total_1
-        yH2O_1 = c1_H2O / c_total_1
-
-        yN2_2 = c2_N2 / c_total_2
-        yCO2_2 = c2_CO2 / c_total_2
-        yH2O_2 = c2_H2O / c_total_2
-
-        # dispersion
-        D_L = data.D_L(vh / Δz)
-        bp, bm = ε_bed * D_L * c_total_edge .* fbernoulli_pm(vh / (ε_bed * D_L))
-
-        f[data.iN2] = bm * yN2_1 - bp * yN2_2
-        f[data.iCO2] = bm * yCO2_1 - bp * yCO2_2
-        f[data.iH2O] = bm * yH2O_1 - bp * yH2O_2
-
-        # Thermal flux
-        Cgas1 = c1_CO2 * data.phys_params.Cₚ_CO2 + c1_H2O * data.phys_params.Cₚ_H2O + c1_N2 * data.phys_params.Cₚ_N2
-        Cgas2 = c2_CO2 * data.phys_params.Cₚ_CO2 + c2_H2O * data.phys_params.Cₚ_H2O + c2_N2 * data.phys_params.Cₚ_N2
-        Cgas_edge = (Cgas1 + Cgas2) * 0.5
-
-        K_L = data.K_L(vh / Δz, Cgas_edge)
-        bpT, bmT = (ε_bed * K_L) .* fbernoulli_pm(vh * Cgas_edge / (ε_bed * K_L))
-        f[data.iT] = bmT * u[data.iT, 1] - bpT * u[data.iT, 2]
-    end
-end
-
-function flux_exponential_test(f, u, edge, data)
     ε_bed = data.sorb_params.ε_bed
 
     vh = data.velocity(u, edge, data)

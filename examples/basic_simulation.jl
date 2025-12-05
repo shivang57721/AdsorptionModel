@@ -4,7 +4,7 @@ using AdsorptionModel
 # 1. Choose column and sorbent parameters
 # ------------------------------------------------------------
 col_params  = COL_PARAMS_YOUNG()
-sorb_params = SORB_PARAMS_LEWATIT(activation=0.5)
+sorb_params = SORB_PARAMS_LEWATIT()
 
 # ------------------------------------------------------------
 # 2. Run a simple TVSA simulation by specifying the step durations

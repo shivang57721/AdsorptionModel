@@ -11,7 +11,7 @@ N = 10   # number of finite volumes
 
 phys_params = PHYS_PARAMS_DEFAULT()
 col_params  = COL_PARAMS_YOUNG()
-sorb_params = SORB_PARAMS_LEWATIT()
+sorb_params = SORB_PARAMS_LEWATIT(activation=0.8) # 80% activation
 cost_params = COST_PARAMS_DEFAULT()
 
 # ------------------------------------------------------------
