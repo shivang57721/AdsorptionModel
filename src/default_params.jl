@@ -153,7 +153,7 @@ Psat_H2O(T) = 611.21 * exp((18.678 - T / 234.5) * T / (T + 273.15 - 16.01))
     return z > zero(z) ? x + inv(β)*log1p(exp(-z)) : inv(β)*log1p(exp(z))
 end
 
-@inline safeexp(x) = exp(clamp(x, oftype(x,-700), oftype(x,700)))
+@inline safeexp(x) = exp(clamp(x, oftype(x,-100), oftype(x,100)))
 
 function Toth_WADST_isotherm_CO2_wet(T, p_CO2, q_H2O, params)
     # params

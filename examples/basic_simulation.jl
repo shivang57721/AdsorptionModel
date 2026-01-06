@@ -11,6 +11,7 @@ sorb_params = SORB_PARAMS_LEWATIT()
 # ------------------------------------------------------------
 
 output = simulate_process(
+    N = 10,
     col_params = col_params,
     sorb_params = sorb_params,
 
@@ -38,5 +39,6 @@ output = simulate_process(
     y_H2O_desorption = 0.0,         # dry sweep gas / vacuum
 
     # --- Logging ---
-    enable_logging = true
+    enable_logging = true,
+    reltol=1e-6
 )

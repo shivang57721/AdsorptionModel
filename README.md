@@ -32,10 +32,7 @@ To install the package directly from GitHub, open the julia REPL in your project
 ```
 
 # Examples
-Example scripts are provided in the `examples/` directory.
+Example scripts for running a simulation are provided in the `examples/` directory.
 
 # Testing
-TODO: To run the package test suite
-```
-] test AdsorptionModel
-```
+Currently, there is no package test suite. However, the `test/` directory contains scripts for running a Method of Manufactured Solutions (MMS) test and computing the computational time for a baseline process using BenchmarkTools.

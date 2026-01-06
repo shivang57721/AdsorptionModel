@@ -1,0 +1,6 @@
+analysis.jl
+simulation_result.jld2
+plots
+Manifest.toml
+examples/activation.jl
+*.png
