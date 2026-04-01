@@ -40,5 +40,4 @@ output = simulate_process(
 
     # --- Logging ---
     enable_logging = true,
-    reltol=1e-6
 )

@@ -289,11 +289,12 @@ function simulate_process(; T::Type=Float64, N=10,
 
     # Save the entire solution if requested
     if save_solution
-        save(save_filepath, Dict("all_solutions"=>all_solutions, 
-                                "cycle_steps"=>cycle_steps,
-                                "index_data"=>index_data,
-                                "sys"=>sys,
-                                "output"=>output))
+        # save(save_filepath, Dict("all_solutions"=>all_solutions, 
+        #                         "cycle_steps"=>cycle_steps,
+        #                         "index_data"=>index_data,
+        #                         "sys"=>sys,
+        #                         "output"=>output))
+        export_to_hdf5(save_filepath; all_solutions, cycle_steps, index_data, sys, output)
     end
 
     if output.co2_dry_purity < 0 || output.specific_energy_consumption_MJ_per_kg < 0

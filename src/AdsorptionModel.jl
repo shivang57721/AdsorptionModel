@@ -18,6 +18,7 @@ export
     simulate_DCB,
     post_process,
     plot_grid_idx,
+    export_to_hdf5,
     PHYS_PARAMS_DEFAULT,
     COST_PARAMS_DEFAULT,
     COL_PARAMS_ARVIND,
@@ -34,11 +35,13 @@ using LinearAlgebra
 using Logging
 using Dictionaries
 using JLD2
+using HDF5
 using ExtendableGrids
 include("params.jl")
 include("default_params.jl")
 include("post_processing.jl")
 include("plotting.jl")
+include("hdf5_export.jl")
 include("main_interface.jl")
 
 using ArrayInterface

@@ -78,6 +78,14 @@ p(x,t) = 1e5 - 1000.0 * x
 # Dict of exact solutions
 fexact = Dict("P"=> p, "N2"=>c_N2, "CO2"=>c_CO2, "H2O"=>c_H2O, "T"=>T, "T_wall"=>T_wall, "q_CO2"=>q_CO2, "q_H2O"=>q_H2O)
 
+# Define velocity with Ergun equation
+∂p∂t(x,t) = ForwardDiff.derivative(t -> p(x,t), t)
+∂p∂x(x,t) = ForwardDiff.derivative(x -> p(x,t), x)
+ρ_gas = p(1,0) / (phys_params.R * T(0,0)) * (1.0 * phys_params.MW_N2) * 1e-3
+b = 150 * μ * (1 - ε_bed) / (dₚ * 1.75 * ρ_gas)
+c = ε_bed^3 * dₚ / (1.75 * ρ_gas * (1 - ε_bed))
+u(x,t) = -2c * ∂p∂x(x,t) / (b + sqrt(b^2 + 4c * sign(∂p∂x(x,t)) * ∂p∂x(x,t)))
+
 # Define operating parameters for adsorption
 op_params = OperatingParameters(Float64;
                 step_name = Adsorption,
@@ -88,15 +96,6 @@ op_params = OperatingParameters(Float64;
                 y_CO2_feed = 0.0,
                 y_H2O_feed = 0.0,
                 duration = 1)
-
-# Define velocity with Ergun equation
-∂p∂t(x,t) = ForwardDiff.derivative(t -> p(x,t), t)
-∂p∂x(x,t) = ForwardDiff.derivative(x -> p(x,t), x)
-ρ_gas = op_params.P_out / (phys_params.R * op_params.T_amb) *
-        (op_params.y_CO2_feed * phys_params.MW_CO2 + op_params.y_H2O_feed * phys_params.MW_H2O + op_params.y_N2_feed * phys_params.MW_N2) * 1e-3
-b = 150 * μ * (1 - ε_bed) / (dₚ * 1.75 * ρ_gas)
-c = ε_bed^3 * dₚ / (1.75 * ρ_gas * (1 - ε_bed))
-u(x,t) = -2c * ∂p∂x(x,t) / (b + sqrt(b^2 + 4c * sign(∂p∂x(x,t)) * ∂p∂x(x,t)))
 
 # Derivatives w.r.t t
 ∂c_CO2∂t(x,t) = ForwardDiff.derivative(t -> c_CO2(x,t), t)
@@ -198,7 +197,7 @@ function plot_approximation(op_params;species="CO2", kwargs...)
     scalarplot!(vis, grid, sol_exact, color = :red, clear = false, markershape = :none, label = "exact")
     xlabel!("z")
     ylabel!("$species(z,T)")
-    title!("Numerical approximation of $species at final time T")
+    # title!("Numerical approximation of $species at final time T")
     reveal(vis)
 end
 
@@ -223,15 +222,15 @@ function convtest_space(op_params)
         xscale = :log, yscale = :log, legend = :lt, Plotter=Plots,
     )
     H = 1 ./ Ns
-    scalarplot!(vis, H, H1, color = :green, label = "H1")
+    # scalarplot!(vis, H, H1, color = :green, label = "H1")
     scalarplot!(vis, H, L2, color = :green, label = "L2", clear = false, linestyle = :dash)
 
-    scalarplot!(vis, H, H * 170, color = :red, linestyle = :solid, label = "O(h)", clear = false)
-    scalarplot!(vis, H, H .^ 2 * 1000, color = :red, linestyle = :dash, label = "O(h^2)", clear = false)
+    scalarplot!(vis, H, H * 20, color = :red, linestyle = :solid, label = "O(h)", clear = false)
+    scalarplot!(vis, H, H .^ 2 * 800, color = :red, linestyle = :dash, label = "O(h^2)", clear = false)
 
     xlabel!("Mesh size h")
-    ylabel!("L² and H¹ error at final time T")
-    title!("Spatial Convergence (MMS)")
+    ylabel!("L² error at final time T")
+    # title!("Spatial Convergence (MMS)")
     reveal(vis)
 end
     
@@ -262,7 +261,7 @@ function convtest_time(op_params)
 
     xlabel!("Time step Δt")
     ylabel!("L² error at final time T")
-    title!("Temporal Convergence (MMS)")
+    # title!("Temporal Convergence (MMS)")
     reveal(vis)
 end
 

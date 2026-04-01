@@ -3,6 +3,8 @@ using JLD2
 using Plots
 using GridVisualize
 using VoronoiFVM
+using HDF5
+using Revise
 
 # ------------------------------------------------------------
 # 1. Define model resolution and parameters
@@ -53,67 +55,57 @@ output = simulate_process(
     # Logging & saving
     enable_logging = true,
     save_solution = true,
-    save_filepath = "simulation_result.jld2",
+    save_filepath = "examples/simulation_result.h5",
 )
 
 # ------------------------------------------------------------
-# 3. Extracting key performance indicators
+# Plot results for the last cycle at column exit
 # ------------------------------------------------------------
-productivity         = output.productivity_kg_per_h_per_m3_bed
-co2_dry_purity       = output.co2_dry_purity
-specific_consumption = output.specific_energy_consumption_MJ_per_kg
+h5open("examples/simulation_result.h5", "r") do fid
+    output_saved = Dict(k => read_attribute(fid["output"], k) for k in keys(attributes(fid["output"])))
+
+    step_order = ["Adsorption", "Preheating", "Heating", "Desorption", "Cooling", "Pressurization"]
+    all_times = Float64[]
+    co2_exit  = Float64[]
+    step_boundaries = Float64[]
+
+    iCO2 = read_attribute(fid["species"], "CO2")
+    data = read(fid, "cycles")
+    last_cycle = length(data)
+
+    time_offset = 0.0
+    for step_name in step_order
+        path = "cycles/cycle_$(last_cycle)/$(step_name)"
+        t    = read(fid, path * "/t")
+        data = read(fid, path * "/data")   # [n_species, n_nodes, n_times]
+
+        append!(all_times, t .+ time_offset)
+        append!(co2_exit,  data[iCO2, end, :])
+        time_offset += t[end]
+
+        push!(step_boundaries, time_offset)
+    end
+    pop!(step_boundaries)
+
+    p = plot(all_times, co2_exit, xlabel="Time (s)", ylabel="CO2 concentration [mol/m³]", label="Last cycle")
+    vline!(p, step_boundaries, linestyle=:dash, color=:black, alpha=0.5, label="")
+end
 
 # ------------------------------------------------------------
-# 4. Load the saved solution
+# Plot spatial profiles (e.g., at the end of Adsorption)
 # ------------------------------------------------------------
-simulation_result = load("simulation_result.jld2")
 
-all_solutions = simulation_result["all_solutions"]
-index_data    = simulation_result["index_data"]
-sys           = simulation_result["sys"]
-cycle_steps   = simulation_result["cycle_steps"]
-
-# ------------------------------------------------------------
-# 5. Plot results for the last cycle at column exit
-# ------------------------------------------------------------
-# Plot all variables at column exit (grid_idx = N)
-plots = plot_grid_idx(
-    all_solutions;
-    cycle_steps,
-    cycle_number = length(all_solutions),
-    grid_idx = N,
-    plotter = Plots,
-)
-
-# Example: Plot CO₂ gas-phase mole fraction and adsorbed-phase CO₂ loading
-plot(plots[index_data.iCO2], title = "CO₂ Mole Fraction at Column Exit")
-plot(plots[index_data.iq_CO2], title = "Adsorbed CO₂ Loading at Column Exit")
-
-# ------------------------------------------------------------
-# 6. Plot spatial profiles (e.g., at the end of Adsorption)
-# ------------------------------------------------------------
-# Choose the adsorption step of the last cycle
-sol_ads = all_solutions[end][Adsorption]
-
-# Option 1: Get grid and co2 profile and plot directly
-xs = coordinates(sys.grid)[1,:]
-co2_profile = sol_ads[index_data.iCO2, :, end]
-
-plot(xs, co2_profile,
-     xlabel="Column position [m]",
-     ylabel="CO₂ concentration [mol/m³]",
-     title="CO₂ Spatial Profile at End of Adsorption")
-
-# Option 2: Use scalarplot from GridVisualize.jl
-scalarplot(
-    sys,
-    sol_ads[end];
-    species = index_data.iCO2,
-    Plotter = Plots,
-    title = "CO₂ Spatial Profile at End of Adsorption",
-)
-xlabel!("Column position [m]")
-ylabel!("CO₂ concentration [mol/m³]")
+h5open("examples/simulation_result.h5", "r") do fid
+    xs = read(fid, "grid/x_coords")
+    iCO2 = read_attribute(fid["species"], "CO2")
+    data = read(fid, "cycles")
+    last_cycle = length(data)
+    co2_profile = read(fid, "cycles/cycle_$last_cycle/Adsorption/data")[iCO2, :, end]
+    plot(xs, co2_profile,
+        xlabel="Column position [m]",
+        ylabel="CO₂ concentration [mol/m³]",
+        title="CO₂ Spatial Profile at End of Adsorption")
+end
 
 # ---------------------------------------
 # NOTE: How to access a transient solution

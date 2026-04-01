@@ -3,4 +3,6 @@ simulation_result.jld2
 plots
 Manifest.toml
 examples/activation.jl
+examples/simulation_result.h5
 *.png
+.vscode
