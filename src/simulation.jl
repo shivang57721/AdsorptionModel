@@ -1,3 +1,5 @@
+# High-level simulation API
+
 # ---------------------------------------
 # ACCESSING A TRANSIENT SOLUTION
 # ---------------------------------------
@@ -7,11 +9,11 @@
 # tsol.t[it] is the corresponding time
 # tsol[ispec,ix,it] refers to solution of component ispec at node ix at moment it
 
-function simulate_DCB(; T::Type=Float64, N::Int=10, 
+function simulate_DCB(; T::Type=Float64, N::Int=10,
                         op_params::OperatingParameters,
                         col_params::ColumnParams,
                         sorb_params::SorbentParams,
-                        phys_params::PhysicalParams=PHYS_PARAMS_DEFAULT(), 
+                        phys_params::PhysicalParams=PHYS_PARAMS_DEFAULT(),
                         solver=FBDF(linsolve=KLUFactorization()), kwargs...)
     sys, data, inival = initialize_system(; T, N, op_params, col_params, sorb_params, phys_params)
     problem = ODEProblem(sys, inival, (0, op_params.duration))
@@ -22,9 +24,9 @@ end
 function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepType, OperatingParameters},
         max_cycles=8, col_params::ColumnParams, sorb_params::SorbentParams, phys_params::PhysicalParams,
         steady_state_tol=1e-2, enable_logging=true, solver=FBDF(linsolve=KLUFactorization()), kwargs...)
-    
+
     if enable_logging
-        logger = ConsoleLogger(stderr, Logging.Info) 
+        logger = ConsoleLogger(stderr, Logging.Info)
         global_logger(logger)
     else
         global_logger(NullLogger())  # disables logging
@@ -41,10 +43,18 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     desorption_params = cycle_steps[Desorption]
     if !isnan(adsorption_params.q_CO2_saturation_limit) && !isnan(desorption_params.q_CO2_saturation_limit)
         # Calculate q_star_CO2 from feed conditions
-        p_H2O = adsorption_params.P_out * adsorption_params.c_H2O_feed / adsorption_params.c_total_feed
-        p_CO2 = adsorption_params.P_out * adsorption_params.c_CO2_feed / adsorption_params.c_total_feed
-        q_star_H2O = sorb_params.q_star_H2O(adsorption_params.T_feed, p_H2O, sorb_params.isotherm_params)
-        q_star_CO2 = sorb_params.q_star_CO2(adsorption_params.T_feed, p_CO2, q_star_H2O, sorb_params.isotherm_params)
+        gas_feed = (
+            T     = adsorption_params.T_feed,
+            p     = adsorption_params.P_out,
+            p_CO2 = adsorption_params.P_out * adsorption_params.c_CO2_feed / adsorption_params.c_total_feed,
+            p_H2O = adsorption_params.P_out * adsorption_params.c_H2O_feed / adsorption_params.c_total_feed,
+            p_N2  = adsorption_params.P_out * adsorption_params.c_N2_feed  / adsorption_params.c_total_feed,
+            c_CO2 = adsorption_params.c_CO2_feed,
+            c_H2O = adsorption_params.c_H2O_feed,
+            c_N2  = adsorption_params.c_N2_feed,
+        )
+        q_star_H2O = sorb_params.q_star_H2O(gas_feed, sorb_params.isotherm_params)
+        q_star_CO2 = sorb_params.q_star_CO2(gas_feed, q_star_H2O, sorb_params.isotherm_params)
 
         callback_adsorption = ContinuousCallback(
                                 (u,_,_) -> minimum(@view reshape(u, sys)[data.iq_CO2, :]) / q_star_CO2 - adsorption_params.q_CO2_saturation_limit,
@@ -60,7 +70,6 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     preheating_params = cycle_steps[Preheating]
     if preheating_params.duration != 0
         T_target = find_zero(T -> T_targ(T; P_heat=preheating_params.P_out, y_H2O=preheating_params.y_H2O_feed), 373) + preheating_params.ΔT_heat
-        # Consider removing the max(0, ) here to make it differentiable and determine beforehand whether preheating is necessary or not
         callback_preheating = ContinuousCallback((u,_,_) -> max(0, T_target - minimum(@view reshape(u, sys)[data.iT, :])), terminate!)
     end
 
@@ -69,11 +78,11 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     heating_params = cycle_steps[Heating]
     if heating_params.extra_heating_ratio !== NaN
         callback_heating = ContinuousCallback((u,t,integrator) -> begin
-                                T_target = (1 - heating_params.extra_heating_ratio) * integrator.p.data.step_params.T_start + 
+                                T_target = (1 - heating_params.extra_heating_ratio) * integrator.p.data.step_params.T_start +
                                                 heating_params.extra_heating_ratio * (heating_params.T_amb - heating_params.ΔT_heat)
                                 minimum(@view reshape(u, sys)[data.iT, :]) - T_target
                             end, terminate!)
-                            
+
     end
 
     # Cooling callback
@@ -103,7 +112,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     for cycle in 1:max_cycles
         if cycle > 2
             # steady-state check
-            u_rel_diff = maximum(norm.(u_current .- u_previous) ./ norm.(u_previous))
+            u_rel_diff = maximum(norm.(u_current .- u_previous) ./ (norm.(u_previous) .+ eps(eltype(u_previous))))
             t_rel_diff = norm(t_current .- t_previous) / norm(t_previous)
 
             @info "Cycle $(cycle-1) u relative difference: $u_rel_diff"
@@ -129,7 +138,6 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
 
             problem = ODEProblem(sys, u_current, (0, step_params.duration))
 
-            # solver choice: keep FBDF by default but allow alternative via param
             step_sol = solve(problem, solver; callback = callbacks[step_params.step_name], dense=false, kwargs...)
             step_params.duration = step_sol.t[end]
             @info "Duration of step: $(step_params.duration)"
@@ -145,15 +153,15 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
     return all_solutions, data, sys
 end
 
-function get_cycle_params(; T::Type=Float64, 
+function get_cycle_params(; T::Type=Float64,
                             duration_adsorption=10*3600, duration_desorption=10*3600, duration_heating=10*3600,
                             q_CO2_saturation_limit_adsorption=NaN,
                             q_CO2_saturation_limit_desorption=NaN,
                             extra_heating_ratio=NaN,
                             T_amb_adsorption=293, T_feed_adsorption=293,
-                            T_amb_desorption, T_feed_desorption, 
-                            u_feed_adsorption, u_feed_desorption, 
-                            P_out_adsorption=1e5, P_out_desorption, 
+                            T_amb_desorption, T_feed_desorption,
+                            u_feed_adsorption, u_feed_desorption,
+                            P_out_adsorption=1e5, P_out_desorption,
                             ΔT_preheat=5, ΔT_heat=5,
                             max_duration_preheating=15*3600,
                             T_safe_cooling=343, max_duration_cooling=3600*5,
@@ -176,7 +184,7 @@ function get_cycle_params(; T::Type=Float64,
             ΔT_heat = ΔT_preheat,
             y_H2O_feed = y_H2O_desorption,
             duration = max_duration_preheating)
-     
+
     # Cancel preheating if there is no water in the purge feed
     if y_H2O_desorption < 1e-4 || u_feed_desorption == 0
         preheating.duration = 0
@@ -190,7 +198,7 @@ function get_cycle_params(; T::Type=Float64,
             duration = duration_heating,
             ΔT_heat = ΔT_heat,
             extra_heating_ratio = extra_heating_ratio)
-            
+
     desorption = OperatingParameters(T;
             step_name = Desorption,
             u_feed = u_feed_desorption,
@@ -221,7 +229,7 @@ function get_cycle_params(; T::Type=Float64,
     cycle_steps = Dictionary{StepType, OperatingParameters}(
                             [Adsorption, Preheating, Heating, Desorption, Cooling, Pressurization],
                             [adsorption, preheating, heating, desorption, cooling, pressurization])
-                            
+
     return cycle_steps
 end
 
@@ -231,9 +239,9 @@ function simulate_process(; T::Type=Float64, N=10,
                             q_CO2_saturation_limit_desorption=NaN,
                             extra_heating_ratio=NaN,
                             T_amb_adsorption=293, T_feed_adsorption=293,
-                            T_amb_desorption, T_feed_desorption, 
-                            u_feed_adsorption, u_feed_desorption, 
-                            P_out_adsorption=1e5, P_out_desorption, 
+                            T_amb_desorption, T_feed_desorption,
+                            u_feed_adsorption, u_feed_desorption,
+                            P_out_adsorption=1e5, P_out_desorption,
                             ΔT_preheat=5, ΔT_heat=5,
                             max_duration_preheating=15*3600,
                             T_safe_cooling=343, max_duration_cooling=5*3600,
@@ -242,24 +250,24 @@ function simulate_process(; T::Type=Float64, N=10,
                             steady_state_tol=0.005, max_cycles=6,
                             col_params::ColumnParams,
                             sorb_params::SorbentParams,
-                            phys_params::PhysicalParams=PHYS_PARAMS_DEFAULT(), 
+                            phys_params::PhysicalParams=PHYS_PARAMS_DEFAULT(),
                             cost_params::CostParams=COST_PARAMS_DEFAULT(),
                             solver = FBDF(linsolve=KLUFactorization()), kwargs...)
     if enable_logging
-        logger = ConsoleLogger(stderr, Logging.Info) 
+        logger = ConsoleLogger(stderr, Logging.Info)
         global_logger(logger)
     else
         global_logger(NullLogger())  # disables logging
     end
 
-    cycle_steps = get_cycle_params(;T,  duration_adsorption, duration_desorption, duration_heating, 
+    cycle_steps = get_cycle_params(;T,  duration_adsorption, duration_desorption, duration_heating,
                                         q_CO2_saturation_limit_adsorption,
                                         q_CO2_saturation_limit_desorption,
                                         ΔT_heat, extra_heating_ratio,
                                         T_amb_adsorption, T_feed_adsorption,
-                                        T_amb_desorption, T_feed_desorption, 
-                                        u_feed_adsorption, u_feed_desorption, 
-                                        P_out_adsorption, P_out_desorption, 
+                                        T_amb_desorption, T_feed_desorption,
+                                        u_feed_adsorption, u_feed_desorption,
+                                        P_out_adsorption, P_out_desorption,
                                         ΔT_preheat, max_duration_preheating,
                                         T_safe_cooling, max_duration_cooling,
                                         y_H2O_adsorption, y_CO2_adsorption, y_H2O_desorption)
@@ -276,7 +284,7 @@ function simulate_process(; T::Type=Float64, N=10,
             solver,
             kwargs...
             )
-            
+
     output = post_process(all_solutions, index_data, sys, cycle_steps, cost_params)
 
     @info "=" ^ 50
@@ -287,13 +295,7 @@ function simulate_process(; T::Type=Float64, N=10,
         @info "$k: $v"
     end
 
-    # Save the entire solution if requested
     if save_solution
-        # save(save_filepath, Dict("all_solutions"=>all_solutions, 
-        #                         "cycle_steps"=>cycle_steps,
-        #                         "index_data"=>index_data,
-        #                         "sys"=>sys,
-        #                         "output"=>output))
         export_to_hdf5(save_filepath; all_solutions, cycle_steps, index_data, sys, output)
     end
 
@@ -304,7 +306,7 @@ function simulate_process(; T::Type=Float64, N=10,
     return output
 end
 
-function is_feasible(q_CO2_saturation_limit_adsorption, q_CO2_saturation_limit_desorption, 
+function is_feasible(q_CO2_saturation_limit_adsorption, q_CO2_saturation_limit_desorption,
                     T_amb_desorption, T_feed_desorption, y_H2O_desorption, P_out_desorption; ΔT_heat = 5)
     if y_H2O_desorption == 0
         return T_amb_desorption ≥ T_feed_desorption

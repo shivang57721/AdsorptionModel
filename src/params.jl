@@ -55,28 +55,30 @@ end
 
 # ----------------- SORBENT PARAMS -----------------
 
-struct SorbentParams{T<:Real, F1<:Function, F2<:Function}
+struct SorbentParams{T<:Real, F1<:Function, F2<:Function, F3, F4<:Function}
     ε_bed::T; ε_total::T; dₚ::T; ρ_bed::T; ρ_particle::T
-    k_CO2::T; k_H2O::T; k_N2::T
+    k_CO2::F3; k_H2O::T; k_N2::T           # k_CO2 may be a Real or a Function
     ΔH_CO2::T; ΔH_H2O::T; ΔH_N2::T
     Dₘ::T; C_solid::T
     isotherm_params::IsothermParams{T}
     q_star_CO2::F1
     q_star_H2O::F2
+    q_star_N2::F4
 end
 
 function SorbentParams(::Type{T}=Float64;
                        ε_bed, ε_total, dₚ, ρ_bed, ρ_particle,
-                       k_CO2, k_H2O, k_N2, ΔH_CO2, ΔH_H2O, ΔH_N2, Dₘ, C_solid,
+                       k_CO2::F3, k_H2O, k_N2, ΔH_CO2, ΔH_H2O, ΔH_N2, Dₘ, C_solid,
                        isotherm_params::IsothermParams,
                        q_star_CO2::F1,
-                       q_star_H2O::F2) where {T<:Real, F1<:Function, F2<:Function}
+                       q_star_H2O::F2,
+                       q_star_N2::F4) where {T<:Real, F1<:Function, F2<:Function, F3, F4<:Function}
 
-    return SorbentParams{T, F1, F2}(T(ε_bed), T(ε_total), T(dₚ), T(ρ_bed), T(ρ_particle),
-                                    T(k_CO2), T(k_H2O), T(k_N2),
-                                    T(ΔH_CO2), T(ΔH_H2O), T(ΔH_N2),
-                                    T(Dₘ), T(C_solid),
-                                    isotherm_params, q_star_CO2, q_star_H2O)
+    return SorbentParams{T, F1, F2, F3, F4}(T(ε_bed), T(ε_total), T(dₚ), T(ρ_bed), T(ρ_particle),
+                                             k_CO2, T(k_H2O), T(k_N2),
+                                             T(ΔH_CO2), T(ΔH_H2O), T(ΔH_N2),
+                                             T(Dₘ), T(C_solid),
+                                             isotherm_params, q_star_CO2, q_star_H2O, q_star_N2)
 end
 
 
