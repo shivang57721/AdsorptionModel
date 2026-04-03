@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 HDF5_FILE = "examples/simulation_result.h5"
 
-STEP_ORDER = ["Adsorption", "Preheating", "Heating", "Desorption", "Cooling", "Pressurization"]
+STEP_ORDER = ["Adsorption", "Blowdown", "Preheating", "Heating", "Desorption", "Cooling", "Pressurization"]
 
 # NOTE: Julia writes arrays in column-major (Fortran) order.
 # h5py reads in row-major (C) order, so a Julia array of shape

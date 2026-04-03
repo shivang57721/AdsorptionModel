@@ -1,4 +1,6 @@
 using AdsorptionModel
+using Plots
+using Revise
 
 # ------------------------------------------------------------
 # 1. Choose column and sorbent parameters
@@ -10,7 +12,7 @@ sorb_params = SORB_PARAMS_LEWATIT()
 # 2. Run a simple TVSA simulation by specifying the step durations
 # ------------------------------------------------------------
 
-output = simulate_process(
+@time output = simulate_process(
     N = 10,
     col_params = col_params,
     sorb_params = sorb_params,
@@ -40,4 +42,10 @@ output = simulate_process(
 
     # --- Logging ---
     enable_logging = true,
+
+    # --- Plotting ---
+    enable_plotting = true,
+    plotter = Plots
 )
+
+output.plots[8]

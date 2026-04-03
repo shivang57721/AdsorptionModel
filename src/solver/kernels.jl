@@ -142,10 +142,7 @@ function reaction(y, u, node, data)
         q_star_CO2 = sorb_params.q_star_CO2(gas, q_star_H2O, sorb_params.isotherm_params)
         q_star_N2  = sorb_params.q_star_N2( gas, sorb_params.isotherm_params)
 
-        k_H2O = sorb_params.k_H2O
-        k_N2  = sorb_params.k_N2
-
-        y[data.iq_H2O] = - k_H2O * (q_star_H2O - u[data.iq_H2O])
+        y[data.iq_H2O] = - sorb_params.k_H2O * (q_star_H2O - u[data.iq_H2O])
         y[data.iq_CO2] = - _eval_k(sorb_params.k_CO2, u[data.iCO2], q_star_CO2) * (q_star_CO2 - u[data.iq_CO2])
         y[data.iq_N2]  = - _eval_k(sorb_params.k_N2,  u[data.iN2],  q_star_N2)  * (q_star_N2  - u[data.iq_N2])
     end
@@ -168,9 +165,11 @@ function bcondition(y, u, bnode, data)
         elseif params.step_name == Pressurization
             P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-0.11 * bnode.time)
             boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_in, value = P_out)
-        elseif params.step_name in (Preheating, Heating, Desorption)
+        elseif params.step_name in (Blowdown, Preheating, Heating, Desorption)
             P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-0.11 * bnode.time)
-            boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_out, value = params.P_out)
+            boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_out, value = P_out)
+        # elseif params.step_name in (Preheating, Heating, Desorption)
+        #     boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_out, value = params.P_out)
         end
     end
 end

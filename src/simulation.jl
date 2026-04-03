@@ -94,6 +94,7 @@ function run_simulation(; T::Type=Float64, N=10, cycle_steps::Dictionary{StepTyp
 
     callbacks = Dict(
         Adsorption=>callback_adsorption,
+        Blowdown=>nothing,
         Preheating=>callback_preheating,
         Heating=>callback_heating,
         Desorption=>callback_desorption,
@@ -176,6 +177,17 @@ function get_cycle_params(; T::Type=Float64,
             P_out = P_out_adsorption,
             duration = duration_adsorption,
             q_CO2_saturation_limit = q_CO2_saturation_limit_adsorption)
+    
+    blowdown = OperatingParameters(T;
+            step_name = Blowdown,
+            T_amb = T_amb_adsorption,
+            P_out = P_out_desorption,
+            duration = 30)
+    
+    # Cancel blowdown if there is no vacuum
+    if P_out_adsorption == P_out_desorption
+        blowdown.duration = 0
+    end
 
     preheating = OperatingParameters(T;
             step_name = Preheating,
@@ -227,8 +239,8 @@ function get_cycle_params(; T::Type=Float64,
                     duration = 60)
 
     cycle_steps = Dictionary{StepType, OperatingParameters}(
-                            [Adsorption, Preheating, Heating, Desorption, Cooling, Pressurization],
-                            [adsorption, preheating, heating, desorption, cooling, pressurization])
+                            [Adsorption, Blowdown, Preheating, Heating, Desorption, Cooling, Pressurization],
+                            [adsorption, blowdown, preheating, heating, desorption, cooling, pressurization])
 
     return cycle_steps
 end
@@ -247,6 +259,7 @@ function simulate_process(; T::Type=Float64, N=10,
                             T_safe_cooling=343, max_duration_cooling=5*3600,
                             y_H2O_adsorption=0.0115, y_CO2_adsorption=0.0004, y_H2O_desorption,
                             enable_logging=false, save_solution=false, save_filepath=nothing,
+                            enable_plotting=false, plotter=nothing,
                             steady_state_tol=0.005, max_cycles=6,
                             col_params::ColumnParams,
                             sorb_params::SorbentParams,
@@ -303,7 +316,14 @@ function simulate_process(; T::Type=Float64, N=10,
         throw(ErrorException("Unknown bug with model, computed solution was negative."))
     end
 
-    return output
+    plots=nothing
+    if enable_plotting
+        cycle_number = length(all_solutions)
+        grid_idx = N
+        plots = plot_grid_idx(all_solutions; plotter, cycle_steps, cycle_number, grid_idx)
+    end
+
+    return (;output..., plots)
 end
 
 function is_feasible(q_CO2_saturation_limit_adsorption, q_CO2_saturation_limit_desorption,

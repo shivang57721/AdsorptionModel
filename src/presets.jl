@@ -34,6 +34,14 @@ COL_PARAMS_ARVIND(T=Float64) = ColumnParams(T;
                         h_W = 26.0
                     )
 
+COL_PARAMS_STAMPI(T=Float64) = ColumnParams(T;
+                        Rᵢ = 0.08,
+                        Rₒ = 0.082,
+                        L  = 0.01,
+                        h_L = 3.0,
+                        h_W = 26.0
+                    )
+
 COL_PARAMS_YOUNG(T=Float64) = ColumnParams(T;
                         Rᵢ = 0.04,
                         Rₒ = 0.041,

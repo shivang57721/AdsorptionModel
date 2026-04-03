@@ -25,11 +25,13 @@ export
     COL_PARAMS_YOUNG,
     COL_PARAMS_LARGESCALE,
     COL_PARAMS_HAGHPANAH,
+    COL_PARAMS_STAMPI,
     SORB_PARAMS_LEWATIT,
     SORB_PARAMS_NbOFFIVE,
-    SORB_PARAMS_ZEOLITE
+    SORB_PARAMS_ZEOLITE,
+    SORB_PARAMS_APDES
 
-@enum StepType Adsorption Preheating Heating Desorption Cooling Pressurization
+@enum StepType Adsorption Blowdown Preheating Heating Desorption Cooling Pressurization
 
 using DifferentialEquations
 using VoronoiFVM
@@ -56,6 +58,7 @@ include("isotherms/langmuir.jl")
 include("sorbents/lewatit.jl")
 include("sorbents/nbofffive.jl")
 include("sorbents/zeolite.jl")
+include("sorbents/APDES.jl")
 
 # Column / physical / cost presets
 include("presets.jl")

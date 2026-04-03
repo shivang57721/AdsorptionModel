@@ -38,7 +38,7 @@ function plot_grid_idx(all_solutions; plotter, cycle_steps, cycle_number, grid_i
 
     # Create the plot using the provided plotter module
     species_dict = Dict(1 => "Pressure [Pa]", 2 => "Concentration of N₂", 3 => "Concetration of CO₂", 4 => "Concetartion of H₂O",
-                        5 => "Temperature [K]", 6 => "Temperature of wall [K]", 7 => "q_CO2", 8 => "q_H2O")
+                        5 => "Temperature [K]", 6 => "Temperature of wall [K]", 7 => "q_CO2", 8 => "q_H2O", 9 => "q_N2")
     plots = []
     for (i, row) in pairs(eachrow(all_values))
         p = plotter.plot(all_times, row;

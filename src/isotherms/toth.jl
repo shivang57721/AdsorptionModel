@@ -43,10 +43,10 @@ function Toth_isotherm_CO2_modified_H2O_Stampi(gas, q_H2O, params)
     R = 8.314
 
     q∞ = q∞ * (1 / (1 - γ * q_H2O))
-    b  = b₀ * exp(-ΔH₀ / (R * gas.T)) * (1 + β * q_H2O)
+    b = b₀ * exp(-ΔH₀/(R*T_ref) * (T_ref/gas.T - 1)) * (1 + β * q_H2O)
     τ  = τ₀ + α * (1 - T_ref / gas.T)
 
-    p_CO2_safe = max(eps(eltype(gas.p_CO2)), gas.p_CO2)
+    p_CO2_safe = _softplus(gas.p_CO2)
 
     q_star = q∞ * b * gas.p_CO2 / (1 + (b * p_CO2_safe) ^ τ) ^ (1/τ)
 
