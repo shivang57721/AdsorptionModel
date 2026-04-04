@@ -3,22 +3,35 @@
 module AdsorptionModel
 
 export
+    # Parameter types
     PhysicalParams,
     ColumnParams,
     SorbentParams,
     IsothermParams,
     CostParams,
-    StepType, Adsorption, Preheating, Heating, Desorption, Cooling, Pressurization,
     OperatingParameters,
-    initialize_system,
-    run_simulation,
-    get_cycle_params,
+
+    # Process types
+    ProcessType, TVSA, STVSA, PSA,
+
+    # Step types
+    StepType, Adsorption, Blowdown, Preheating, Heating, Desorption, Cooling, Pressurization, Evacuation,
+
+    # Step duration types
+    StepDuration, FixedDuration, SaturationLimit, HeatingUntilTarget, max_duration,
+
+    # Step configuration
+    StepConfig, step_sequence,
+
+    # Simulation API
     simulate_process,
-    is_feasible,
     simulate_DCB,
+    is_feasible,
     post_process,
     plot_grid_idx,
     export_to_hdf5,
+
+    # Presets
     PHYS_PARAMS_DEFAULT,
     COST_PARAMS_DEFAULT,
     COL_PARAMS_ARVIND,
@@ -31,7 +44,7 @@ export
     SORB_PARAMS_ZEOLITE,
     SORB_PARAMS_APDES
 
-@enum StepType Adsorption Blowdown Preheating Heating Desorption Cooling Pressurization
+@enum StepType Adsorption Blowdown Preheating Heating Desorption Cooling Pressurization Evacuation
 
 using DifferentialEquations
 using VoronoiFVM
@@ -67,10 +80,13 @@ include("presets.jl")
 include("solver/kernels.jl")
 include("solver/system.jl")
 
-# Post-processing, plotting, export, simulation API
+# Post-processing, plotting, export
 include("post_processing.jl")
 include("plotting.jl")
 include("hdf5_export.jl")
+
+# Process definitions and simulation API
+include("processes.jl")
 include("simulation.jl")
 
 end # module

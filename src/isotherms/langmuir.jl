@@ -3,7 +3,7 @@
 # Shared helper: computes (q_CO2, q_N2) in mol/kg from concentrations in mol/m³
 function _zeolite_dual_langmuir(T, c_CO2, c_N2)
     b₀_CO2  = 8.65e-7;  b₀_N2  = 2.5e-6
-    d₀_CO2  = 2.63e-10; # d₀_N2 = 0
+    d₀_CO2  = 2.63e-8; # d₀_N2 = 0
     ΔUb_CO2 = -36641.21; ΔUb_N2 = -1.58e4
     ΔUd_CO2 = -35690.66 # ΔUd_N2 = 0
     q_sb_CO2 = 3.09; q_sb_N2 = 5.84
@@ -23,7 +23,7 @@ function _zeolite_dual_langmuir(T, c_CO2, c_N2)
     return q_CO2, q_N2
 end
 
-function q_star_CO2_zeolite(gas, params)
+function q_star_CO2_zeolite(gas, q_H2O, params)
     _zeolite_dual_langmuir(gas.T, gas.c_CO2, gas.c_N2)[1]
 end
 

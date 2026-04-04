@@ -2,50 +2,39 @@ using AdsorptionModel
 using Plots
 using Revise
 
-# ------------------------------------------------------------
-# 1. Choose column and sorbent parameters
-# ------------------------------------------------------------
 col_params  = COL_PARAMS_YOUNG()
 sorb_params = SORB_PARAMS_LEWATIT()
 
-# ------------------------------------------------------------
-# 2. Run a simple TVSA simulation by specifying the step durations
-# ------------------------------------------------------------
-
-@time output = simulate_process(
+@time output = simulate_process(TVSA();
     N = 10,
     col_params = col_params,
     sorb_params = sorb_params,
 
-    # --- Step durations (in seconds) ---
-    duration_adsorption = 8_000,
-    duration_heating    = 2_400,
-    duration_desorption = 20_000,
+    steps = Dict(
+        # --- Adsorption: air flows through column ---
+        Adsorption => StepConfig(FixedDuration(8_000.0);
+            u_feed     = 7.06e-2,       # m/s
+            T_feed     = 288.15,
+            T_amb      = 288.15,
+            P_out      = 1.01325e5,     # atmospheric
+            y_CO2_feed = 0.0004,
+            y_H2O_feed = 0.00935),
 
-    # --- Operating temperatures ---
-    T_amb_adsorption  = 288.15,
-    T_feed_adsorption = 288.15,
-    T_amb_desorption  = 373.15,
-    T_feed_desorption = 373.15,
+        # --- Heating: wall heating, no flow ---
+        Heating => StepConfig(FixedDuration(2_400.0);
+            T_amb  = 373.15,
+            P_out  = 0.2e5),
 
-    # --- Inlet velocities ---
-    u_feed_adsorption = 7.06e-2,     # m/s
-    u_feed_desorption = 0.0,         # no inflow during desorption
+        # --- Desorption: vacuum, no inflow ---
+        Desorption => StepConfig(FixedDuration(20_000.0);
+            T_amb  = 373.15,
+            T_feed = 373.15,
+            P_out  = 0.2e5),
+    ),
 
-    # --- Outlet pressures ---
-    P_out_adsorption = 1.01325e5,   # atmospheric pressure
-    P_out_desorption = 0.2e5,       # vacuum level
-
-    # --- Humidity ---
-    y_H2O_adsorption = 0.00935,     # typical ambient humidity
-    y_H2O_desorption = 0.0,         # dry sweep gas / vacuum
-
-    # --- Logging ---
     enable_logging = true,
-
-    # --- Plotting ---
     enable_plotting = true,
-    plotter = Plots
+    plotter = Plots,
 )
 
-output.plots[8]
+output.plots[7]

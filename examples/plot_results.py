@@ -24,12 +24,12 @@ STEP_ORDER = ["Adsorption", "Blowdown", "Preheating", "Heating", "Desorption", "
 
 with h5py.File(HDF5_FILE, "r") as f:
     # Species indices are 1-based (Julia convention); convert to 0-based for Python
-    iCO2 = f["species"].attrs["CO2"] - 1
+    iq_CO2 = f["species"].attrs["q_CO2"] - 1
 
     last_cycle = max(int(k.replace("cycle_", "")) for k in f["cycles"].keys())
 
     all_times = []
-    co2_exit  = []
+    qco2_exit  = []
     step_boundaries = []
     time_offset = 0.0
 
@@ -39,23 +39,23 @@ with h5py.File(HDF5_FILE, "r") as f:
         data = f[path]["data"][:]              # [n_times, n_nodes, n_species]
 
         all_times.extend(t + time_offset)
-        co2_exit.extend(data[:, -1, iCO2])    # last node, CO2 species
+        qco2_exit.extend(data[:, -1, iq_CO2])    # last node, CO2 species
         time_offset += t[-1]
         step_boundaries.append(time_offset)
 
     step_boundaries.pop()  # remove boundary after last step
 
 fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(all_times, co2_exit, label="Last cycle")
+ax.plot(all_times, qco2_exit, label="Last cycle")
 for t_boundary in step_boundaries:
     ax.axvline(t_boundary, linestyle="--", color="black", alpha=0.5)
 ax.set_xlabel("Time (s)")
-ax.set_ylabel("CO₂ concentration [mol/m³]")
-ax.set_title("CO₂ at Column Exit — Last Cycle")
+ax.set_ylabel("q_CO₂ [mol/kg]")
+ax.set_title("q_CO₂ at Column Exit — Last Cycle")
 ax.legend()
 plt.tight_layout()
 plt.show()
-plt.savefig("co2_at_exit.png")
+plt.savefig("qco2_at_exit.png")
 
 # ------------------------------------------------------------
 # Plot CO2 spatial profile at end of Adsorption (last cycle)

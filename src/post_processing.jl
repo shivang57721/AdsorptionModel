@@ -22,14 +22,14 @@ end
 # ===============  POST-PROCESS FUNCTION  ==============
 # =====================================================
 
-function post_process(all_solutions, data, sys, cycle_steps, cost_params)
+function post_process(::Union{TVSA, STVSA}, all_solutions, data, sys, cycle_steps, cost_params)
     phys_params = data.phys_params
     col_params  = data.col_params
     sorb_params = data.sorb_params
 
     # --- Extract last-cycle step solutions ---
+    has_preheating = haskey(all_solutions[end], Preheating)
     adsorption      = all_solutions[end][Adsorption]
-    preheating      = all_solutions[end][Preheating]
     heating         = all_solutions[end][Heating]
     desorption      = all_solutions[end][Desorption]
 
@@ -40,8 +40,10 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
     total_time = sum(step.duration for step in cycle_steps)
 
     # --- Flow rate integration setup ---
+    Γ_in = 1; Γ_out = 2;
+    B_0 = [Γ_in]; B_1 = [Γ_out]
     tf = TestFunctionFactory(sys)
-    T  = testfunction(tf, [1], [2])
+    T  = testfunction(tf, B_0, B_1)
 
     # --- Compute total outflow during desorption ---
     outflow = integrate(sys, T, desorption; rate = false)
@@ -114,7 +116,7 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
         return trapz(step.t, q)
     end
 
-    heat_preheat = wall_heat(preheating)
+    heat_preheat = has_preheating ? wall_heat(all_solutions[end][Preheating]) : 0.0
     heat_heating = wall_heat(heating)
     heat_des     = wall_heat(desorption)
 
@@ -175,7 +177,7 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
         effective_cycle_time_h = total_time_1cycle,
         cycles_completed       = length(all_solutions),
         adsorption_duration_s  = cycle_steps[Adsorption].duration,
-        preheating_duration_s  = cycle_steps[Preheating].duration,
+        preheating_duration_s  = has_preheating ? cycle_steps[Preheating].duration : 0.0,
         heating_duration_s     = cycle_steps[Heating].duration,
         desorption_duration_s  = cycle_steps[Desorption].duration,
         cooling_duration_s     = cycle_steps[Cooling].duration,
@@ -215,4 +217,92 @@ function post_process(all_solutions, data, sys, cycle_steps, cost_params)
         n_trains = n_trains,
         column_length_m = col_params.L
         )
+end
+
+function post_process(::PSA, all_solutions, data, sys, cycle_steps, cost_params)
+    phys_params = data.phys_params
+    col_params  = data.col_params
+    sorb_params = data.sorb_params
+
+    adsorption = all_solutions[end][Adsorption]
+    adsorption_params = cycle_steps[Adsorption]
+
+    cross_section = π * col_params.Rᵢ^2
+    total_time = sum(step.duration for step in cycle_steps)
+
+    Γ_in = 1; Γ_out = 2;
+    B_0 = [Γ_out]; B_1 = [Γ_in]
+    tf = TestFunctionFactory(sys)
+    T  = testfunction(tf, B_0, B_1)
+
+    # Outflow during evacuation
+    evacuation = all_solutions[end][Evacuation]
+    evacuation_params = cycle_steps[Evacuation]
+    outflow = integrate(sys, T, evacuation; rate=false)
+    if any(isnan, outflow.u[end])
+        outflow.u[end] = outflow.u[end-1]
+    end
+    total_outflow = -trapz(outflow.t, reduce(hcat, outflow.u)')
+
+    iCO2, iN2, iH2O = data.iCO2, data.iN2, data.iH2O
+
+    purity_CO2     = total_outflow[iCO2] / (total_outflow[iCO2] + total_outflow[iN2] + total_outflow[iH2O])
+    dry_purity_CO2 = total_outflow[iCO2] / (total_outflow[iCO2] + total_outflow[iN2])
+
+    working_capacity = total_outflow[iCO2] * cross_section /
+        (col_params.L * cross_section * sorb_params.ρ_bed)
+
+    n_cols_per_train = ceil(total_time / adsorption_params.duration)
+    total_time_1cycle = n_cols_per_train * adsorption_params.duration / 3600
+    productivity = working_capacity * phys_params.MW_CO2 / 1000 / total_time_1cycle * sorb_params.ρ_bed
+
+    mass_sorbent = col_params.L * cross_section * sorb_params.ρ_bed
+
+    # Electrical energy (vacuum pump)
+    η_blow = cost_params.efficiency_blower
+    γ = cost_params.adiabatic_index
+
+    molar_rate_out = cross_section *
+        (total_outflow[iCO2] + total_outflow[iN2] + total_outflow[iH2O]) / evacuation_params.duration
+
+    power_vacuum_pump = (
+        molar_rate_out * γ * phys_params.R * evacuation[data.iT, end, end] /
+        (cost_params.eta_VP * (γ - 1)) *
+        ((adsorption_params.P_out / evacuation_params.P_out) ^ ((γ - 1) / γ) - 1)
+    ) / 1000
+
+    DP_ads = trapz(adsorption.t, getindex.(adsorption.u, data.ip, 1) .- adsorption_params.P_out) / adsorption_params.duration
+    power_blower_ads = adsorption_params.u_feed * cross_section * DP_ads / (η_blow * 1000)
+
+    total_electric_power = (
+        power_blower_ads * adsorption_params.duration / 3600 +
+        power_vacuum_pump * evacuation_params.duration / 3600
+    ) / total_time_1cycle
+
+    spec_electric_cons = total_electric_power / 1000 /
+        (productivity / 3600 * mass_sorbent / sorb_params.ρ_bed)
+
+    (;  specific_energy_consumption_MJ_per_kg = spec_electric_cons,
+        co2_dry_purity = dry_purity_CO2,
+        productivity_kg_per_h_per_m3_bed = productivity,
+        co2_outflow_total_mol = total_outflow[iCO2],
+        n2_outflow_total_mol  = total_outflow[iN2],
+        h2o_outflow_total_mol = total_outflow[iH2O],
+        co2_purity = purity_CO2,
+        working_capacity_mol_per_kg = working_capacity,
+        total_cycle_time_s = total_time,
+        effective_cycle_time_h = total_time_1cycle,
+        cycles_completed = length(all_solutions),
+        adsorption_duration_s = adsorption_params.duration,
+        evacuation_duration_s = evacuation_params.duration,
+        avg_pressure_drop_ads_Pa = DP_ads,
+        power_blower_ads_kW = power_blower_ads,
+        power_vacuum_pump_kW = power_vacuum_pump,
+        total_electric_power_kW = total_electric_power,
+        specific_electric_energy_MJ_per_kg = spec_electric_cons,
+        cross_section_m2 = cross_section,
+        mass_sorbent_kg = mass_sorbent,
+        n_cols_per_train = n_cols_per_train,
+        column_length_m = col_params.L
+    )
 end

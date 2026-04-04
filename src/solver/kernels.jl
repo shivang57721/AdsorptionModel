@@ -1,7 +1,7 @@
 # Kernel functions for the VoronoiFVM PDE system
 
 _eval_k(k::Real,     _, _) = k
-_eval_k(k::Function, c, q_star) = k(c, q_star)
+_eval_k(k::Function, c, q_star) = k(c, q_star + 1e-10)
 
 # ---------------------------------------------------------------------------
 # Velocity models
@@ -140,11 +140,20 @@ function reaction(y, u, node, data)
 
         q_star_H2O = sorb_params.q_star_H2O(gas, sorb_params.isotherm_params)
         q_star_CO2 = sorb_params.q_star_CO2(gas, q_star_H2O, sorb_params.isotherm_params)
-        q_star_N2  = sorb_params.q_star_N2( gas, sorb_params.isotherm_params)
+        q_star_N2  = sorb_params.q_star_N2(gas, sorb_params.isotherm_params)
 
         y[data.iq_H2O] = - sorb_params.k_H2O * (q_star_H2O - u[data.iq_H2O])
         y[data.iq_CO2] = - _eval_k(sorb_params.k_CO2, u[data.iCO2], q_star_CO2) * (q_star_CO2 - u[data.iq_CO2])
         y[data.iq_N2]  = - _eval_k(sorb_params.k_N2,  u[data.iN2],  q_star_N2)  * (q_star_N2  - u[data.iq_N2])
+
+        if NaN in u || NaN in y
+            @show u[data.iCO2].value
+            @show u[data.iN2].value
+            @show _eval_k(sorb_params.k_CO2, u[data.iCO2], q_star_CO2).value
+            @show _eval_k(sorb_params.k_N2,  u[data.iN2],  q_star_N2).value
+            @show u[data.iq_CO2].value
+            @show u[data.iq_N2].value
+        end
     end
 end
 
@@ -163,13 +172,14 @@ function bcondition(y, u, bnode, data)
         if params.step_name == Adsorption
             boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_out, value = params.P_out)
         elseif params.step_name == Pressurization
-            P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-0.11 * bnode.time)
+            P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-params.λ * bnode.time)
             boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_in, value = P_out)
         elseif params.step_name in (Blowdown, Preheating, Heating, Desorption)
-            P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-0.11 * bnode.time)
+            P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-params.λ * bnode.time)
             boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_out, value = P_out)
-        # elseif params.step_name in (Preheating, Heating, Desorption)
-        #     boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_out, value = params.P_out)
+        elseif params.step_name == Evacuation
+            P_out = params.P_out + (params.P_out_start - params.P_out) * exp(-params.λ * bnode.time)
+            boundary_dirichlet!(y, u, bnode; species=data.ip, region=data.Γ_in, value = P_out)
         end
     end
 end
@@ -182,11 +192,8 @@ function boutflow(y, u, edge, data)
         end
 
         vh = data.velocity(u, edge, data)
-        if vh < 0
-            return nothing
-        end
-
         if params.step_name == Pressurization
+            if vh < 0 return nothing end
             if outflownode(edge) == data.Γ_in
                 y[data.iN2] = -vh * params.c_N2_feed
                 y[data.iCO2] = -vh * params.c_CO2_feed
@@ -195,7 +202,19 @@ function boutflow(y, u, edge, data)
                 C_gas_feed = params.c_CO2_feed * data.phys_params.Cₚ_CO2 + params.c_H2O_feed * data.phys_params.Cₚ_H2O + params.c_N2_feed * data.phys_params.Cₚ_N2
                 y[data.iT] = -vh * C_gas_feed * params.T_feed
             end
+        elseif params.step_name == Evacuation
+            if vh > 0 return nothing end
+            if outflownode(edge) == data.Γ_in
+                nodeidx = outflownode(edge)
+                y[data.iN2]  = -vh * u[data.iN2, nodeidx]
+                y[data.iCO2] = -vh * u[data.iCO2, nodeidx]
+                y[data.iH2O] = -vh * u[data.iH2O, nodeidx]
+
+                C_gas = u[data.iCO2, nodeidx] * data.phys_params.Cₚ_CO2 + u[data.iH2O, nodeidx] * data.phys_params.Cₚ_H2O + u[data.iN2, nodeidx] * data.phys_params.Cₚ_N2
+                y[data.iT] = -vh * C_gas * u[data.iT, nodeidx]
+            end
         else
+            if vh < 0 return nothing end
             if outflownode(edge) == data.Γ_out
                 nodeidx = outflownode(edge)
                 y[data.iN2]  = -vh * u[data.iN2, nodeidx]

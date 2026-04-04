@@ -24,7 +24,7 @@ function AdsorptionData(; step_params::OperatingParameters, col_params::ColumnPa
     K_L = let D_L=D_L
         (u, C_gas) -> D_L(u) * C_gas
     end
-    darcy_k = 150 * phys_params.μ * (1 - sorb_params.ε_bed)^2 / (sorb_params.ε_bed^3 * sorb_params.dₚ^2)
+    darcy_k = 150 * phys_params.μ * (1 - sorb_params.ε_bed)^2 / (sorb_params.ε_bed^2 * sorb_params.dₚ^2)
 
     ρ_gas = step_params.P_out / (phys_params.R * step_params.T_amb) *
             (step_params.y_CO2_feed * phys_params.MW_CO2 + step_params.y_H2O_feed * phys_params.MW_H2O + step_params.y_N2_feed * phys_params.MW_N2) * 1e-3
@@ -43,7 +43,7 @@ end
 
 function initialize_system(; T::Type=Float64, N::Int,
         op_params::OperatingParameters, col_params::ColumnParams, sorb_params::SorbentParams, phys_params::PhysicalParams,
-        velocity=ergun_velocity, flux=flux_exponential, reaction=reaction, bcondition=bcondition, boutflow=boutflow, source=source)
+        velocity=darcy_velocity, flux=flux_exponential, reaction=reaction, bcondition=bcondition, boutflow=boutflow, source=source)
 
     data = AdsorptionData(; step_params=deepcopy(op_params), col_params, sorb_params, phys_params, velocity)
     X = range(0, stop=col_params.L, length=N)
