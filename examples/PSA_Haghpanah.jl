@@ -21,7 +21,7 @@ sorb_params = SORB_PARAMS_ZEOLITE()
         Adsorption => StepConfig(FixedDuration(15.0);
             u_feed     = 1.0,
             T_feed     = 298.15,
-            T_amb      = 298.15,
+            T_amb      = 298.15, 
             P_out      = 1e5,
             y_CO2_feed = 0.15),
 
@@ -42,7 +42,6 @@ sorb_params = SORB_PARAMS_ZEOLITE()
     steady_state_tol = 1e-3,
     max_cycles = 10,
     enable_logging = true,
-    reltol = 1e-6,
     enable_plotting = true,
     plotter = Plots,
 )

@@ -12,7 +12,7 @@ export
     OperatingParameters,
 
     # Process types
-    ProcessType, TVSA, STVSA, PSA,
+    ProcessType, TVSA, STVSA, PSA, TSA,
 
     # Step types
     StepType, Adsorption, Blowdown, Preheating, Heating, Desorption, Cooling, Pressurization, Evacuation,

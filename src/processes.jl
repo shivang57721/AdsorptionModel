@@ -6,10 +6,12 @@
 
 step_sequence(::TVSA)  = (Adsorption, Blowdown, Heating, Desorption, Cooling, Pressurization)
 step_sequence(::STVSA) = (Adsorption, Blowdown, Preheating, Heating, Desorption, Cooling, Pressurization)
-step_sequence(::PSA)   = (Pressurization, Adsorption, Blowdown, Evacuation)
+step_sequence(::TSA)   = (Adsorption, Heating, Desorption, Cooling)
+step_sequence(::PSA)   = (Adsorption, Blowdown, Evacuation, Pressurization)
 
 required_steps(::TVSA)  = (Adsorption, Heating, Desorption)
 required_steps(::STVSA) = (Adsorption, Heating, Desorption)
+required_steps(::TSA)   = (Adsorption, Heating, Desorption)
 required_steps(::PSA)   = (Adsorption, Evacuation)
 
 # ---------------------------------------------------------------------------
@@ -62,14 +64,13 @@ function _add_defaults!(::TVSA, steps)
     des = steps[Desorption]
 
     if !haskey(steps, Pressurization)
-        steps[Pressurization] = StepConfig(FixedDuration(60.0);
+        steps[Pressurization] = StepConfig(FixedDuration(30.0);
             P_out=ads.P_out, T_amb=ads.T_amb, T_feed=ads.T_feed,
             y_CO2_feed=ads.y_CO2_feed, y_H2O_feed=ads.y_H2O_feed)
     end
 
     if !haskey(steps, Blowdown)
-        dur = abs(ads.P_out - des.P_out) < 1.0 ? 0.0 : 30.0
-        steps[Blowdown] = StepConfig(FixedDuration(dur);
+        steps[Blowdown] = StepConfig(FixedDuration(30.0);
             P_out=des.P_out, T_amb=ads.T_amb)
     end
 
@@ -84,14 +85,13 @@ function _add_defaults!(::STVSA, steps)
     des = steps[Desorption]
 
     if !haskey(steps, Pressurization)
-        steps[Pressurization] = StepConfig(FixedDuration(60.0);
+        steps[Pressurization] = StepConfig(FixedDuration(30.0);
             P_out=ads.P_out, T_amb=ads.T_amb, T_feed=ads.T_feed,
             y_CO2_feed=ads.y_CO2_feed, y_H2O_feed=ads.y_H2O_feed)
     end
 
     if !haskey(steps, Blowdown)
-        dur = abs(ads.P_out - des.P_out) < 1.0 ? 0.0 : 30.0
-        steps[Blowdown] = StepConfig(FixedDuration(dur);
+        steps[Blowdown] = StepConfig(FixedDuration(30.0);
             P_out=des.P_out, T_amb=ads.T_amb)
     end
 
@@ -118,9 +118,18 @@ function _add_defaults!(::PSA, steps)
     end
 
     if !haskey(steps, Blowdown)
-        dur = abs(ads.P_out - evac.P_out) < 1.0 ? 0.0 : 30.0
-        steps[Blowdown] = StepConfig(FixedDuration(dur);
+        steps[Blowdown] = StepConfig(FixedDuration(15.0);
             P_out=evac.P_out, T_amb=ads.T_amb)
+    end
+end
+
+function _add_defaults!(::TSA, steps)
+    ads = steps[Adsorption]
+    des = steps[Desorption]
+
+    if !haskey(steps, Cooling)
+        steps[Cooling] = StepConfig(FixedDuration(5*3600.0);
+            P_out=des.P_out, T_amb=ads.T_amb, T_safe_cooling=343.0)
     end
 end
 
@@ -128,7 +137,10 @@ end
 # Conversion: StepConfig -> OperatingParameters (internal)
 # ---------------------------------------------------------------------------
 
-function to_operating_params(step_type::StepType, config::StepConfig)
+get_λ(::PSA) = 0.5
+get_λ(::ProcessType) = 0.11
+
+function to_operating_params(step_type::StepType, config::StepConfig, process::ProcessType)
     OperatingParameters(Float64;
         step_name = step_type,
         u_feed = config.u_feed,
@@ -142,7 +154,7 @@ function to_operating_params(step_type::StepType, config::StepConfig)
         T_safe_cooling = config.T_safe_cooling,
         q_CO2_saturation_limit = config.duration isa SaturationLimit ? config.duration.limit : NaN,
         extra_heating_ratio = config.duration isa HeatingUntilTarget ? config.duration.extra_ratio : NaN,
-        λ = 0.11)
+        λ = get_λ(process))
 end
 
 function build_cycle_steps(process::ProcessType, user_steps)
@@ -151,7 +163,7 @@ function build_cycle_steps(process::ProcessType, user_steps)
     seq = step_sequence(process)
     cycle_steps = Dictionary{StepType, OperatingParameters}(
         collect(seq),
-        [to_operating_params(step, all_configs[step]) for step in seq])
+        [to_operating_params(step, all_configs[step], process) for step in seq])
     return cycle_steps, all_configs
 end
 
@@ -174,7 +186,6 @@ function _compute_q_star_CO2(ads_config::StepConfig, sorb_params::SorbentParams)
     )
     q_star_H2O = sorb_params.q_star_H2O(gas_feed, sorb_params.isotherm_params)
     q_star_CO2 = sorb_params.q_star_CO2(gas_feed, q_star_H2O, sorb_params.isotherm_params)
-    @show q_star_CO2
     return q_star_CO2
 end
 

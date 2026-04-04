@@ -146,10 +146,12 @@ abstract type ProcessType end
 struct TVSA  <: ProcessType end
 struct STVSA <: ProcessType end
 struct PSA   <: ProcessType end
+struct TSA   <: ProcessType end
 
 Base.show(io::IO, ::TVSA)  = print(io, "TVSA")
 Base.show(io::IO, ::STVSA) = print(io, "sTVSA")
 Base.show(io::IO, ::PSA)   = print(io, "PSA")
+Base.show(io::IO, ::TSA)   = print(io, "TSA")
 
 
 # ============= STEP DURATION TYPES =============

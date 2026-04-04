@@ -69,6 +69,7 @@ function _run_cycle_loop(; sys, data, inival, cycle_steps, callbacks,
 
             cb = get(callbacks, step_params.step_name, nothing)
             step_sol = solve(problem, solver; callback=cb, dense=false, kwargs...)
+            println(step_sol.retcode)
             step_params.duration = step_sol.t[end]
             @info "Duration of step: $(step_params.duration)"
 
